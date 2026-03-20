@@ -1562,4 +1562,10 @@ public interface ActiveMQServerLogger {
 
    @LogMessage(id = 224172, value = "Failed to remove binding {} from address {} during wildcard address cleanup", level = LogMessage.Level.WARN)
    void failedToRemoveBindingDuringWildcardCleanup(String binding, String address, Exception e);
+
+   @LogMessage(id = 224173, value = "Queue id={} not found on database reload. The queue may have been deleted.", level = LogMessage.Level.WARN)
+   void queueNotFoundOnDatabaseReload(long queueId);
+
+   @LogMessage(id = 224174, value = "Deleted {} orphaned messages from the database", level = LogMessage.Level.INFO)
+   void deletedOrphanedMessages(int count);
 }
