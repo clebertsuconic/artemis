@@ -92,6 +92,9 @@ public class OperationContextImpl implements OperationContext {
    static final AtomicLongFieldUpdater<OperationContextImpl> PAGE_LINEUP_UPDATER = AtomicLongFieldUpdater
       .newUpdater(OperationContextImpl.class, "pageLineUpField");
 
+   static final AtomicIntegerFieldUpdater<OperationContextImpl> WORKERS_UPDATER = AtomicIntegerFieldUpdater.
+      newUpdater(OperationContextImpl.class, "workers");
+
    public long getReplicationLineUpField() {
       return replicationLineUpField;
    }
@@ -116,6 +119,11 @@ public class OperationContextImpl implements OperationContext {
       return paged;
    }
 
+   /**
+    * on the new database implementation, you can have multiple workers to perform storage.
+    * We will set this to true when we have scheduled tasks.
+    */
+   volatile int workers;
    volatile int executorsPendingField = 0;
    volatile long storeLineUpField = 0;
    volatile long replicationLineUpField = 0;
@@ -171,6 +179,26 @@ public class OperationContextImpl implements OperationContext {
       if (debugTrackers != null) {
          debugTrackers.add(new Exception(">" + storeLineUpValue));
       }
+   }
+
+   @Override
+   public void workUp() {
+      WORKERS_UPDATER.incrementAndGet(this);
+   }
+
+   @Override
+   public void workDone() {
+      WORKERS_UPDATER.decrementAndGet(this);
+   }
+
+   @Override
+   public boolean isWorking() {
+      return WORKERS_UPDATER.get(this) > 0;
+   }
+
+   @Override
+   public int getActiveWorkers() {
+      return WORKERS_UPDATER.get(this);
    }
 
    @Override
