@@ -502,6 +502,18 @@ public final class ActiveMQDefaultConfiguration {
 
    private static final int DEFAULT_JDBC_MAX_PAGE_SIZE_BYTES = 100 * 1024;
 
+   private static final int DEFAULT_DATABASE_CONNECTIONS = 6;
+
+   private static final int DEFAULT_DATABASE_MAX_READ_CONNECTIONS = -1;
+
+   private static final long DEFAULT_DATABASE_READ_IDLE_TIMEOUT = 5000;
+
+   private static final int DEFAULT_DATABASE_MAX_RETRIES = 5;
+
+   private static final long DEFAULT_DATABASE_RETRY_INTERVAL_MILLIS = 5000;
+
+   private static final long DEFAULT_DATABASE_FLUSH_PERIOD_NANOS = (long) (1000000000d / 300);
+
    // Default period to wait between connection TTL checks
    public static final long DEFAULT_CONNECTION_TTL_CHECK_INTERVAL = 2000;
 
@@ -1624,6 +1636,30 @@ public final class ActiveMQDefaultConfiguration {
 
    public static int getDefaultJdbcMaxPageSizeBytes() {
       return DEFAULT_JDBC_MAX_PAGE_SIZE_BYTES;
+   }
+
+   public static int getDefaultDatabaseConnections() {
+      return DEFAULT_DATABASE_CONNECTIONS;
+   }
+
+   public static int getDefaultDatabaseMaxReadConnections() {
+      return DEFAULT_DATABASE_MAX_READ_CONNECTIONS;
+   }
+
+   public static long getDefaultDatabaseReadIdleTimeout() {
+      return DEFAULT_DATABASE_READ_IDLE_TIMEOUT;
+   }
+
+   public static int getDefaultDatabaseMaxRetries() {
+      return DEFAULT_DATABASE_MAX_RETRIES;
+   }
+
+   public static long getDefaultDatabaseRetryIntervalMillis() {
+      return DEFAULT_DATABASE_RETRY_INTERVAL_MILLIS;
+   }
+
+   public static long getDefaultDatabaseFlushPeriodNanos() {
+      return DEFAULT_DATABASE_FLUSH_PERIOD_NANOS;
    }
 
    public static long getDefaultConnectionTtlCheckInterval() {
