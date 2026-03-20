@@ -1374,6 +1374,8 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
          ackedRefs = consumer.acknowledge(autoCommitAcks ? null : tx, messageID);
       }
 
+      storageFlowControl();
+
       return ackedRefs;
    }
 
@@ -2072,6 +2074,8 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
             }
          }
 
+         storageFlowControl();
+
          if (AuditLogger.isMessageLoggingEnabled()) {
             if (tx != null && !autoCommitSends) {
                AuditLogger.addSendToTransaction(remotingConnection.getSubject(), remotingConnection.getRemoteAddress(), theMessage.toString(), tx.toString());
@@ -2101,6 +2105,32 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
          server.callBrokerMessagePlugins(plugin -> plugin.afterSend(this, autoCommitSends ? null : tx, theMessage, direct, noAutoCreateQueue, result));
       }
       return result;
+   }
+
+   private void storageFlowControl() {
+      storageManager.flowControl(blockRunnable, unblockRunnable);
+   }
+
+   // I'm declaring the runnable ahead to avoid creating a new instance on every call
+   private final Runnable unblockRunnable = this::unblock;
+   private void unblock() {
+      try {
+         remotingConnection.getTransportConnection().setAutoRead(true);
+      } catch (Throwable e) {
+         // nothing that we could do about it.. just log
+         logger.warn(e.getMessage(), e);
+      }
+   }
+
+   // I'm declaring the runnable ahead to avoid creating a new instance on every call
+   private final Runnable blockRunnable = this::block;
+   private void block() {
+      try {
+         remotingConnection.getTransportConnection().setAutoRead(false);
+      } catch (Throwable e) {
+         // nothing that we could do about it.. just log
+         logger.warn(e.getMessage(), e);
+      }
    }
 
    private void auditLogSend(Message message, Transaction tx) {
