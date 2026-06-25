@@ -33,6 +33,7 @@ import org.apache.activemq.artemis.core.paging.PagingStoreFactory;
 import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
+import org.apache.activemq.artemis.core.server.quota.ResourceQuotaManager;
 import org.apache.activemq.artemis.core.settings.HierarchicalRepository;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.utils.CompositeAddress;
@@ -63,6 +64,8 @@ public abstract class AbstracPagingManager implements PagingManager {
    protected final ActiveMQServer server;
 
    protected PagingStoreFactory pagingStoreFactory;
+
+   protected ResourceQuotaManager resourceQuotaManager;
 
    protected volatile boolean globalFull;
 
@@ -117,6 +120,16 @@ public abstract class AbstracPagingManager implements PagingManager {
    }
 
    @Override
+   public ResourceQuotaManager getResourceQuotaManager() {
+      return resourceQuotaManager;
+   }
+
+   @Override
+   public void setResourceQuotaManager(ResourceQuotaManager resourceQuotaManager) {
+      this.resourceQuotaManager = resourceQuotaManager;
+   }
+
+   @Override
    public void addBlockedStore(AddressSizeLimiter store) {
       blockedStored.add(store);
    }
@@ -134,6 +147,14 @@ public abstract class AbstracPagingManager implements PagingManager {
       for (PagingStore store : stores.values()) {
          AddressSettings settings = this.addressSettingsRepository.getMatch(store.getAddress().toString());
          store.applySetting(settings);
+
+         if (resourceQuotaManager != null && settings.getResourceQuota() != null) {
+            org.apache.activemq.artemis.core.settings.impl.ResourceQuota quota =
+               resourceQuotaManager.getQuotaForAddress(store.getAddress(), settings);
+            store.setResourceQuota(quota);
+         } else {
+            store.setResourceQuota(null);
+         }
       }
    }
 
@@ -255,7 +276,17 @@ public abstract class AbstracPagingManager implements PagingManager {
       assert managementAddress == null || !address.startsWith(managementAddress);
       syncLock.readLock().lock();
       try {
-         PagingStore store = pagingStoreFactory.newStore(address, addressSettingsRepository.getMatch(address.toString()));
+         AddressSettings settings = addressSettingsRepository.getMatch(address.toString());
+         PagingStore store = pagingStoreFactory.newStore(address, settings);
+
+         if (resourceQuotaManager != null && settings.getResourceQuota() != null) {
+            org.apache.activemq.artemis.core.settings.impl.ResourceQuota quota =
+               resourceQuotaManager.getQuotaForAddress(address, settings);
+            if (quota != null) {
+               store.setResourceQuota(quota);
+            }
+         }
+
          store.start();
          return store;
       } finally {

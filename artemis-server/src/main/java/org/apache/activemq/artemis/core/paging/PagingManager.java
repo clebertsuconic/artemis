@@ -199,6 +199,16 @@ public interface PagingManager extends ActiveMQComponent, HierarchicalRepository
    void checkMemory(Runnable runWhenAvailable);
 
    /**
+    * Get the resource quota manager for hierarchical quota management.
+    */
+   default org.apache.activemq.artemis.core.server.quota.ResourceQuotaManager getResourceQuotaManager() {
+      return null;
+   }
+
+   default void setResourceQuotaManager(org.apache.activemq.artemis.core.server.quota.ResourceQuotaManager resourceQuotaManager) {
+   }
+
+   /**
     * No-op by default for implementations that do not use file-based cursor snapshots.
     */
    default void counterSnapshot() {
