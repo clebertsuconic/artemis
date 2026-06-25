@@ -252,6 +252,19 @@ public class PagingManagerImpl extends AbstracPagingManager {
          for (PagingStore store : reloadedStores) {
             store.getCursorProvider().counterRebuildStarted();
             store.start();
+
+            if (resourceQuotaManager != null) {
+               org.apache.activemq.artemis.core.settings.impl.AddressSettings addrSettings =
+                  addressSettingsRepository.getMatch(store.getStoreName().toString());
+               if (addrSettings != null && addrSettings.getResourceQuota() != null) {
+                  org.apache.activemq.artemis.core.settings.impl.ResourceQuota quota =
+                     resourceQuotaManager.getQuotaForAddress(store.getStoreName(), addrSettings);
+                  if (quota != null) {
+                     store.setResourceQuota(quota);
+                  }
+               }
+            }
+
             stores.put(store.getStoreName(), store);
          }
       } finally {
@@ -404,6 +417,7 @@ public class PagingManagerImpl extends AbstracPagingManager {
    public Future<Object> rebuildCounters(Set<Long> storedLargeMessages) {
       if (rebuildingPageCounters) {
          logger.debug("Rebuild page counters is already underway, ignoring call");
+         return null;
       }
       Map<Long, PageTransactionInfo> transactionsSet = new LongObjectHashMap();
       // making a copy
@@ -422,10 +436,27 @@ public class PagingManagerImpl extends AbstracPagingManager {
          transactionsSet.forEach((a, b) -> logger.debug("{} = {}", a, b));
       }
 
+      // Quick synchronous estimate: set conservative byte counts from page metadata.
+      // This gives quotas a non-zero value immediately; the async rebuild corrects it.
+      currentStoreMap.forEach((address, pgStore) -> {
+         pgStore.applyPreliminaryQuotaEstimate();
+      });
+
       currentStoreMap.forEach((address, pgStore) -> {
          PageCounterRebuildManager rebuildManager = new PageCounterRebuildManager(this, pgStore, transactionsSet, storedLargeMessages, minLargeMessageID);
          logger.debug("Setting destination {} to rebuild counters", address);
          managerExecutor.execute(rebuildManager);
+      });
+
+      // Rebuild quota counters for each paging store after page counter rebuild completes
+      currentStoreMap.forEach((address, pgStore) -> {
+         managerExecutor.execute(() -> {
+            try {
+               pgStore.rebuildQuotaCounters();
+            } catch (Exception e) {
+               logger.warn("Error rebuilding quota counters for address {}", address, e);
+            }
+         });
       });
 
       managerExecutor.execute(() -> cleanupPageTransactions(transactionsSet, currentStoreMap));

@@ -47,6 +47,7 @@ import org.apache.activemq.artemis.core.server.impl.QueueImpl;
 import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.settings.impl.PageFullMessagePolicy;
+import org.apache.activemq.artemis.core.settings.impl.ResourceQuota;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
@@ -253,6 +254,30 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
    }
 
    class FakePagingStore implements PagingStore {
+
+      @Override
+      public void setResourceQuota(org.apache.activemq.artemis.core.settings.impl.ResourceQuota quota) {
+      }
+
+      @Override
+      public ResourceQuota getResourceQuota() {
+         return null;
+      }
+
+      @Override
+      public void rebuildQuotaCounters() throws Exception {
+
+      }
+
+      @Override
+      public void setRebuiltQuotaBytes(long bytes) {
+
+      }
+
+      @Override
+      public long applyPreliminaryQuotaEstimate() {
+         return 0;
+      }
 
       @Override
       public PageFullMessagePolicy getPageFullMessagePolicy() {

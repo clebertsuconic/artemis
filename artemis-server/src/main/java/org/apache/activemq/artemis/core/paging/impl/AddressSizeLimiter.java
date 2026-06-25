@@ -84,6 +84,12 @@ public abstract class AddressSizeLimiter {
 
    protected volatile boolean running = false;
 
+   protected volatile org.apache.activemq.artemis.core.settings.impl.ResourceQuota resourceQuota;
+
+   protected volatile long preliminaryQuotaBytes;
+
+   protected volatile long rebuiltQuotaBytes = -1;
+
    protected boolean printedDropMessagesWarning;
 
    public boolean isStarted() {
@@ -92,6 +98,25 @@ public abstract class AddressSizeLimiter {
 
    public SimpleString getAddress() {
       return address;
+   }
+
+   public void setResourceQuota(org.apache.activemq.artemis.core.settings.impl.ResourceQuota quota) {
+      this.resourceQuota = quota;
+   }
+
+   public org.apache.activemq.artemis.core.settings.impl.ResourceQuota getResourceQuota() {
+      return resourceQuota;
+   }
+
+   public void setRebuiltQuotaBytes(long bytes) {
+      this.rebuiltQuotaBytes = bytes;
+   }
+
+   public long applyPreliminaryQuotaEstimate() {
+      return 0;
+   }
+
+   public void rebuildQuotaCounters() throws Exception {
    }
 
    // Internal components such as mirroring could enforce a different page full message policy
