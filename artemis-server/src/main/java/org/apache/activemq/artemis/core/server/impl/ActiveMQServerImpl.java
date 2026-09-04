@@ -3243,7 +3243,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
    protected StorageManager createStorageManager() {
       if (configuration.isPersistenceEnabled()) {
          if (configuration.isUsingDatabaseStorage()) {
-            DatabaseStorageManager journal = new DatabaseStorageManager(configuration, getCriticalAnalyzer(), executorFactory, ioExecutorFactory, getScheduledPool(), threadPool);
+            DatabaseStorageManager journal = new DatabaseStorageManager(configuration, getCriticalAnalyzer(), executorFactory, ioExecutorFactory, getScheduledPool(), threadPool, ioCriticalErrorListener);
             this.getCriticalAnalyzer().add(journal);
             return journal;
          } else if (configuration.isUsingFileOverDB()) {
