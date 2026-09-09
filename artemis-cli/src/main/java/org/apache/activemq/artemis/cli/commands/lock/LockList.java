@@ -96,7 +96,9 @@ public class LockList extends ConnectionAbstract {
       TableOut tableOut = new TableOut("|", 2, columnSizes);
 
       // Print header
+      tableOut.printTopSeparator(context.out);
       tableOut.print(context.out, fieldTitles, centralize);
+      tableOut.printSeparator(context.out);
 
       // Print data rows
       for (int i = 0; i < array.size(); i++) {
@@ -108,6 +110,7 @@ public class LockList extends ConnectionAbstract {
          };
          tableOut.print(context.out, columns, centralize);
       }
+      tableOut.printBottomSeparator(context.out);
       context.out.println();
    }
 

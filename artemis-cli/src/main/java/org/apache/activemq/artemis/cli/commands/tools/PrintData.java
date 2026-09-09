@@ -328,7 +328,7 @@ public class PrintData extends DBOption {
                int msgID = 0;
 
                if (pageTable != null) {
-                  pageTable.printSeparator(out);
+                  pageTable.printTopSeparator(out);
                   pageTable.print(out, new String[]{"Page", "Msg", "TX", safe ? "Size" : "Message", "Queues"});
                   pageTable.printSeparator(out);
                }

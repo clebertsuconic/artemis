@@ -50,9 +50,50 @@ public class TableOutTest {
    public void testOutLine() {
       // the output is visual, however this test is good to make sure the output at least works without any issues
       TableOut tableOut = new TableOut("|", 2, new int[] {5, 20, 20});
+      tableOut.printTopSeparator(System.out);
       tableOut.print(System.out, new String[]{"This is a big title", "1234567", "1234"});
+      tableOut.printSeparator(System.out);
+      tableOut.print(System.out, new String[]{"row1", "value1", "value2"});
+      tableOut.printBottomSeparator(System.out);
       tableOut = new TableOut("|", 0, new int[] {10, 20, 20});
+      tableOut.printTopSeparator(System.out);
       tableOut.print(System.out, new String[]{"This is a big title", "1234567", "1234"}, new boolean[] {true, true, true});
+      tableOut.printBottomSeparator(System.out);
+   }
+
+   @Test
+   public void testBoxDrawingCharacters() {
+      java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+      java.io.PrintStream ps = new java.io.PrintStream(baos);
+
+      TableOut tableOut = new TableOut("|", 0, new int[] {5, 5});
+      tableOut.printTopSeparator(ps);
+      tableOut.print(ps, new String[]{"Col1", "Col2"});
+      tableOut.printSeparator(ps);
+      tableOut.print(ps, new String[]{"r1c1", "r1c2"});
+      tableOut.printBottomSeparator(ps);
+
+      String output = baos.toString();
+      String[] lines = output.split(System.lineSeparator());
+
+      // top border uses ┌ ┬ ┐
+      Assertions.assertTrue(lines[0].startsWith("┌"), "Top line should start with ┌");
+      Assertions.assertTrue(lines[0].contains("┬"), "Top line should contain ┬");
+      Assertions.assertTrue(lines[0].endsWith("┐"), "Top line should end with ┐");
+
+      // data rows use │
+      Assertions.assertTrue(lines[1].startsWith("│"), "Data row should start with │");
+      Assertions.assertTrue(lines[1].endsWith("│"), "Data row should end with │");
+
+      // middle separator uses ├ ┼ ┤
+      Assertions.assertTrue(lines[2].startsWith("├"), "Middle separator should start with ├");
+      Assertions.assertTrue(lines[2].contains("┼"), "Middle separator should contain ┼");
+      Assertions.assertTrue(lines[2].endsWith("┤"), "Middle separator should end with ┤");
+
+      // bottom border uses └ ┴ ┘
+      Assertions.assertTrue(lines[4].startsWith("└"), "Bottom line should start with └");
+      Assertions.assertTrue(lines[4].contains("┴"), "Bottom line should contain ┴");
+      Assertions.assertTrue(lines[4].endsWith("┘"), "Bottom line should end with ┘");
    }
 
 }

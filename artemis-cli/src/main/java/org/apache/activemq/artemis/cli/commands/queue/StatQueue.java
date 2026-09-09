@@ -345,7 +345,9 @@ public class StatQueue extends ConnectionAbstract {
       if (singleLineHeader) {
          printHeadings(columnSizes);
       } else {
+         tableOut.printTopSeparator(getActionContext().out);
          tableOut.print(getActionContext().out, fieldTitles, centralize);
+         tableOut.printSeparator(getActionContext().out);
       }
 
       for (int i = 0; i < array.size(); i++) {
@@ -355,6 +357,7 @@ public class StatQueue extends ConnectionAbstract {
          printQueueStats(array.getJsonObject(i), columnSizes, centralize, tableOut);
          statCount++;
       }
+      tableOut.printBottomSeparator(getActionContext().out);
 
       if (count > maxRows) {
          getActionContext().out.println(String.format("WARNING: the displayed queues are %d/%d, set maxRows to display more queues.", maxRows, count));

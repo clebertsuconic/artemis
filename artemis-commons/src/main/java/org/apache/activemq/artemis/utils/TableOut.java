@@ -23,6 +23,19 @@ import java.util.List;
 
 public class TableOut {
 
+   // Unicode box-drawing characters
+   private static final String BOX_HORIZONTAL = "─";
+   private static final String BOX_VERTICAL = "│";
+   private static final String BOX_TOP_LEFT = "┌";
+   private static final String BOX_TOP_RIGHT = "┐";
+   private static final String BOX_TOP_MID = "┬";
+   private static final String BOX_MID_LEFT = "├";
+   private static final String BOX_MID_RIGHT = "┤";
+   private static final String BOX_MID_MID = "┼";
+   private static final String BOX_BOTTOM_LEFT = "└";
+   private static final String BOX_BOTTOM_RIGHT = "┘";
+   private static final String BOX_BOTTOM_MID = "┴";
+
    final String separator;
    final int[] columnSizes;
    final int indentation;
@@ -37,12 +50,29 @@ public class TableOut {
       indentationString = " ".repeat(indentation);
    }
 
+   /** Print the top border: ┌───┬───┐ */
+   public void printTopSeparator(PrintStream stream) {
+      printBoxLine(stream, BOX_TOP_LEFT, BOX_TOP_MID, BOX_TOP_RIGHT);
+   }
+
+   /** Print a middle separator: ├───┼───┤ */
    public void printSeparator(PrintStream stream) {
-      int totalWidth = separator.length() * (columnSizes.length + 1);
-      for (int columnSize : columnSizes) {
-         totalWidth += columnSize;
+      printBoxLine(stream, BOX_MID_LEFT, BOX_MID_MID, BOX_MID_RIGHT);
+   }
+
+   /** Print the bottom border: └───┴───┘ */
+   public void printBottomSeparator(PrintStream stream) {
+      printBoxLine(stream, BOX_BOTTOM_LEFT, BOX_BOTTOM_MID, BOX_BOTTOM_RIGHT);
+   }
+
+   private void printBoxLine(PrintStream stream, String left, String mid, String right) {
+      StringBuilder line = new StringBuilder();
+      line.append(left);
+      for (int i = 0; i < columnSizes.length; i++) {
+         line.append(BOX_HORIZONTAL.repeat(columnSizes[i]));
+         line.append(i < columnSizes.length - 1 ? mid : right);
       }
-      stream.println("-".repeat(totalWidth));
+      stream.println(line);
    }
 
    public void print(PrintStream stream, String[] columns) {
@@ -67,7 +97,7 @@ public class TableOut {
       int lineNumber = 0;
       do {
          hasMoreLines = false;
-         stream.print(separator);
+         stream.print(BOX_VERTICAL);
          for (int column = 0; column < splitColumns.length; column++) {
             StringBuilder cell = new StringBuilder();
 
@@ -92,7 +122,7 @@ public class TableOut {
                cell.append(" ");
             }
             stream.print(cell);
-            stream.print(separator);
+            stream.print(BOX_VERTICAL);
          }
          stream.println();
          lineNumber++;
