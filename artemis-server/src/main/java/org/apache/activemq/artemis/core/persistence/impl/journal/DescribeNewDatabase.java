@@ -80,7 +80,9 @@ public class DescribeNewDatabase {
    private static void printAddresses(DatabaseProvider databaseProvider, Connection connection, PrintStream out) throws Exception {
       int[] columnSizes = {10, 50, 10, 10};
       TableOut tableOut = new TableOut("|", 2, columnSizes);
+      tableOut.printTopSeparator(out);
       tableOut.print(out, new String[]{"ID", "Name", "Multicast", "Anycast"});
+      tableOut.printSeparator(out);
 
       AtomicInteger count = new AtomicInteger();
       AddressJDBCQuery query = new AddressJDBCQuery(databaseProvider, connection);
@@ -88,6 +90,7 @@ public class DescribeNewDatabase {
          tableOut.print(out, new String[]{String.valueOf(data.id), data.address, data.isMulticast ? "Y" : "N", data.isAnycast ? "Y" : "N"});
          count.incrementAndGet();
       });
+      tableOut.printBottomSeparator(out);
       out.println("Total addresses: " + count.get());
       out.println();
    }
@@ -95,8 +98,9 @@ public class DescribeNewDatabase {
    private static void printQueues(DatabaseProvider databaseProvider, Connection connection, PrintStream out) throws Exception {
       int[] columnSizes = {10, 10, 30, 15, 20, 90};
       TableOut tableOut = new TableOut("|", 2, columnSizes);
-
+      tableOut.printTopSeparator(out);
       tableOut.print(out, new String[]{"ID", "Address", "Name", "Type", "Filter", "Config"});
+      tableOut.printSeparator(out);
 
       AtomicInteger count = new AtomicInteger();
       QueueJDBCQuery query = new QueueJDBCQuery(databaseProvider, connection);
@@ -113,6 +117,7 @@ public class DescribeNewDatabase {
          });
          count.incrementAndGet();
       });
+      tableOut.printBottomSeparator(out);
       out.println("Total queues: " + count.get());
       out.println();
    }
@@ -120,7 +125,9 @@ public class DescribeNewDatabase {
    private static void printMessages(DatabaseProvider databaseProvider, Connection connection, PrintStream out, boolean safe) throws Exception {
       int[] columnSizes = {10, 10, 120};
       TableOut tableOut = new TableOut("|", 2, columnSizes);
+      tableOut.printTopSeparator(out);
       tableOut.print(out, new String[]{"ID", "TX", safe ? "Size" : "Message"});
+      tableOut.printSeparator(out);
 
       AtomicInteger count = new AtomicInteger();
       MessagesJDBCQuery query = new MessagesJDBCQuery(databaseProvider, connection);
@@ -140,6 +147,7 @@ public class DescribeNewDatabase {
          }
          count.incrementAndGet();
       });
+      tableOut.printBottomSeparator(out);
       out.println("Total messages: " + count.get());
       out.println();
    }
@@ -147,7 +155,9 @@ public class DescribeNewDatabase {
    private static void printReferences(DatabaseProvider databaseProvider, Connection connection, PrintStream out) throws Exception {
       int[] columnSizes = {10, 10};
       TableOut tableOut = new TableOut("|", 2, columnSizes);
+      tableOut.printTopSeparator(out);
       tableOut.print(out, new String[]{"Msg ID", "Queue"});
+      tableOut.printSeparator(out);
 
       AtomicInteger count = new AtomicInteger();
       ReferencesJDBCQuery query = new ReferencesJDBCQuery(databaseProvider, connection);
@@ -155,6 +165,7 @@ public class DescribeNewDatabase {
          tableOut.print(out, new String[]{String.valueOf(data.messageID), String.valueOf(data.queueID)});
          count.incrementAndGet();
       });
+      tableOut.printBottomSeparator(out);
       out.println("Total references: " + count.get());
       out.println();
    }
@@ -162,7 +173,9 @@ public class DescribeNewDatabase {
    private static void printPages(DatabaseProvider databaseProvider, Connection connection, PrintStream out, boolean safe) throws Exception {
       int[] columnSizes = {10, 10, 10, 10, 10, safe ? 10 : 120};
       TableOut tableOut = new TableOut("|", 2, columnSizes);
+      tableOut.printTopSeparator(out);
       tableOut.print(out, new String[]{"Address", "Page", "Seq", "Msg ID", "TX", safe ? "Size" : "Message"});
+      tableOut.printSeparator(out);
 
       AtomicInteger count = new AtomicInteger();
       PageJDBCQuery query = new PageJDBCQuery(databaseProvider, connection);
@@ -182,6 +195,7 @@ public class DescribeNewDatabase {
          }
          count.incrementAndGet();
       });
+      tableOut.printBottomSeparator(out);
       out.println("Total pages: " + count.get());
       out.println();
    }
@@ -189,7 +203,9 @@ public class DescribeNewDatabase {
    private static void printPageRefs(DatabaseProvider databaseProvider, Connection connection, PrintStream out) throws Exception {
       int[] columnSizes = {10, 10, 10, 10};
       TableOut tableOut = new TableOut("|", 2, columnSizes);
+      tableOut.printTopSeparator(out);
       tableOut.print(out, new String[]{"Address", "Page", "Seq", "Queue"});
+      tableOut.printSeparator(out);
 
       AtomicInteger count = new AtomicInteger();
       PageRefJDBCQuery query = new PageRefJDBCQuery(databaseProvider, connection);
@@ -197,6 +213,7 @@ public class DescribeNewDatabase {
          tableOut.print(out, new String[]{String.valueOf(data.addressID), String.valueOf(data.pageID), String.valueOf(data.pageNR), String.valueOf(data.queueID)});
          count.incrementAndGet();
       });
+      tableOut.printBottomSeparator(out);
       out.println("Total page references: " + count.get());
       out.println();
    }
@@ -206,7 +223,9 @@ public class DescribeNewDatabase {
 
       int[] columnSizes = {10, 40, 10, 80};
       TableOut tableOut = new TableOut("|", 2, columnSizes);
+      tableOut.printTopSeparator(out);
       tableOut.print(out, new String[]{"ID", "Record Type", "TX", "Decoded"});
+      tableOut.printSeparator(out);
 
       AtomicInteger count = new AtomicInteger();
       GenericDataJDBCQuery query = new GenericDataJDBCQuery(databaseProvider, connection, tableName);
@@ -218,6 +237,7 @@ public class DescribeNewDatabase {
          tableOut.print(out, new String[]{String.valueOf(data.id), typeStr, txStr, decodedStr});
          count.incrementAndGet();
       });
+      tableOut.printBottomSeparator(out);
       out.println("Total generic data records: " + count.get());
       out.println();
    }
