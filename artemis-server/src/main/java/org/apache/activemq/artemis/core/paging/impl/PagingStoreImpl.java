@@ -38,12 +38,16 @@ import org.apache.activemq.artemis.core.paging.PagedMessage;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.paging.PagingStoreFactory;
+import org.apache.activemq.artemis.core.paging.cursor.PageCursorProvider;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.replication.ReplicationManager;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.core.server.RouteContextList;
+import org.apache.activemq.artemis.core.server.StorageMessageReader;
+import org.apache.activemq.artemis.core.server.impl.PageStorageMessageReader;
+import org.apache.activemq.artemis.core.server.impl.QueueImpl;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.core.transaction.TransactionOperation;
@@ -62,6 +66,8 @@ public class PagingStoreImpl extends AbstractPagingStoreImpl {
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    private final DecimalFormat format = new DecimalFormat("000000000");
+
+   private final PageCursorProvider cursorProvider;
 
    private volatile SequentialFileFactory fileFactory;
 
@@ -87,6 +93,7 @@ public class PagingStoreImpl extends AbstractPagingStoreImpl {
       super(address, scheduledExecutor, syncTimeout, pagingManager,
             storageManager, storeFactory,
             storeName, addressSettings, executor, syncNonTransactional);
+      this.cursorProvider = storeFactory.newCursorProvider(this, storageManager, addressSettings, executor);
       this.fileFactory = fileFactory;
       this.scheduledExecutor = scheduledExecutor;
       this.syncTimeout = syncTimeout;
@@ -110,11 +117,22 @@ public class PagingStoreImpl extends AbstractPagingStoreImpl {
             storageManager, storeFactory,
             storeName, addressSettings, executor, syncNonTransactional,
             purgePageFolder);
+      this.cursorProvider = storeFactory.newCursorProvider(this, storageManager, addressSettings, executor);
       this.fileFactory = fileFactory;
       this.scheduledExecutor = scheduledExecutor;
       this.syncTimeout = syncTimeout;
       this.syncNonTransactional = syncNonTransactional;
       this.timedWriter = createPageTimedWriter(scheduledExecutor, syncTimeout);
+   }
+
+   @Override
+   public PageCursorProvider getCursorProvider() {
+      return cursorProvider;
+   }
+
+   @Override
+   public StorageMessageReader createStorageMessageReader(QueueImpl queue) {
+      return new PageStorageMessageReader(queue);
    }
 
    // Extension point for unit tests to replace the creation of the PageTimedWriter
@@ -504,6 +522,60 @@ public class PagingStoreImpl extends AbstractPagingStoreImpl {
 
       return;
    }
+
+   @Override
+   protected boolean beginPage() {
+      try {
+         if (currentPage == null) {
+            openNewPage();
+         } else {
+            if (!currentPage.storageExists() || !currentPage.isOpen()) {
+               currentPage.open(false);
+            }
+         }
+      } catch (Exception e) {
+         // If not possible to starting page due to an IO error, we will just consider it non paging.
+         // This shouldn't happen anyway
+         ActiveMQServerLogger.LOGGER.pageStoreStartIOError(e);
+         storageManager.criticalError(e);
+         return false;
+      }
+   }
+
+   private void openNewPage() throws Exception {
+      numberOfPages++;
+
+      checkNumberOfPages();
+
+      final long newPageId = currentPageId + 1;
+
+      if (logger.isTraceEnabled()) {
+         logger.trace("destination {} new pageNr={}", storeName, newPageId);
+      }
+
+      final Page oldPage = currentPage;
+      if (oldPage != null) {
+         oldPage.close(true);
+         oldPage.usageDown();
+         currentPage = null;
+      }
+
+      final Page newPage = newPageObject(newPageId);
+
+      resetCurrentPage(newPage);
+
+      currentPageSize = 0;
+
+      newPage.open(true);
+
+      currentPageId = newPageId;
+
+      if (newPageId < firstPageId) {
+         logger.debug("open new page, setting firstPageId = {}, it was {} before", newPageId, firstPageId);
+         firstPageId = newPageId;
+      }
+   }
+
 
    private static class FinishPageMessageOperation implements TransactionOperation {
 

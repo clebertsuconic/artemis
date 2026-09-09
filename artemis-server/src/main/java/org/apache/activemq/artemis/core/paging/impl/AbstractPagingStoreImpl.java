@@ -46,10 +46,7 @@ import org.apache.activemq.artemis.core.server.ActiveMQMessageBundle;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.LargeServerMessage;
 import org.apache.activemq.artemis.core.server.RouteContextList;
-import org.apache.activemq.artemis.core.server.StorageMessageReader;
 import org.apache.activemq.artemis.core.server.impl.MessageReferenceImpl;
-import org.apache.activemq.artemis.core.server.impl.PageStorageMessageReader;
-import org.apache.activemq.artemis.core.server.impl.QueueImpl;
 import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.settings.impl.DiskFullMessagePolicy;
@@ -144,8 +141,6 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
 
    private volatile boolean paging = false;
 
-   private final PageCursorProvider cursorProvider;
-
    // This lock mostly protects the paging field. It is also used to block producers in eventual cases such as dropping
    // a queue, but mostly to protect if the storage is in paging mode.
    private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -216,8 +211,6 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
       this.storeFactory = storeFactory;
 
       this.syncNonTransactional = syncNonTransactional;
-
-      this.cursorProvider = storeFactory.newCursorProvider(this, this.storageManager, addressSettings, executor);
 
       this.usingGlobalMaxSize = pagingManager.isUsingGlobalSize();
 
@@ -351,7 +344,10 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
          if (estimatedMaxPagesChanged) {
             checkNumberOfPages();
          }
-         cursorProvider.checkClearPageLimit();
+         final PageCursorProvider provider = getCursorProvider();
+         if (provider != null) {
+            provider.checkClearPageLimit();
+         }
       }
    }
 
@@ -516,7 +512,7 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
 
    @Override
    public PageCursorProvider getCursorProvider() {
-      return cursorProvider;
+      return null;
    }
 
    @Override
@@ -649,7 +645,10 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
 
    @Override
    public void processReload() throws Exception {
-      cursorProvider.processReload();
+      final PageCursorProvider provider = getCursorProvider();
+      if (provider != null) {
+         provider.processReload();
+      }
    }
 
    @Override
@@ -664,7 +663,10 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
 
    @Override
    public void counterSnapshot() {
-      cursorProvider.counterSnapshot();
+      final PageCursorProvider provider = getCursorProvider();
+      if (provider != null) {
+         provider.counterSnapshot();
+      }
    }
 
    @Override
@@ -672,8 +674,9 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
       synchronized (this) {
          if (running) {
             stopTimedWriter();
-            if (cursorProvider != null) {
-               cursorProvider.stop();
+            final PageCursorProvider provider = getCursorProvider();
+            if (provider != null) {
+               provider.stop();
             }
             running = false;
          } else {
@@ -791,7 +794,10 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
             ActiveMQServerLogger.LOGGER.pageStoreStop(storeName, getPageInfo());
             pageLimitReleased();
          }
-         this.cursorProvider.onPageModeCleared();
+         final PageCursorProvider provider = getCursorProvider();
+         if (provider != null) {
+            provider.onPageModeCleared();
+         }
          if (purgePageFolder.get()) {
             execute(this::purgeFolder);
          }
@@ -815,8 +821,10 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
                currentPage = null;
                numberOfPages = 0;
                if (deleteFolder()) {
-                  // we delete the subscription's journal information after the folder is removed
-                  cursorProvider.forEachSubscription(PageSubscription::deleteCursorInfo);
+                  final PageCursorProvider provider = getCursorProvider();
+                  if (provider != null) {
+                     provider.forEachSubscription(PageSubscription::deleteCursorInfo);
+                  }
                }
             }
          } finally {
@@ -837,6 +845,10 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
 
    private String getPageInfo() {
       return String.format("size=%d bytes (%d messages); maxSize=%d bytes (%d messages); globalSize=%d bytes (%d messages); globalMaxSize=%d bytes (%d messages);", size.getSize(), size.getElements(), maxSize, maxMessages, pagingManager.getGlobalSize(), pagingManager.getGlobalMessages(), pagingManager.getMaxSize(), pagingManager.getMaxMessages());
+   }
+
+   protected boolean beginPage() {
+      return true;
    }
 
    @Override
@@ -869,22 +881,8 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
             if (paging) {
                return false;
             }
+            beginPage();
 
-            try {
-               if (currentPage == null) {
-                  openNewPage();
-               } else {
-                  if (!currentPage.storageExists() || !currentPage.isOpen()) {
-                     currentPage.open(false);
-                  }
-               }
-            } catch (Exception e) {
-               // If not possible to starting page due to an IO error, we will just consider it non paging.
-               // This shouldn't happen anyway
-               ActiveMQServerLogger.LOGGER.pageStoreStartIOError(e);
-               storageManager.criticalError(e);
-               return false;
-            }
             paging = true;
             ActiveMQServerLogger.LOGGER.pageStoreStart(storeName, getPageInfo());
 
@@ -1406,7 +1404,10 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
     */
    @Override
    public void disableCleanup() {
-      getCursorProvider().disableCleanup();
+      final PageCursorProvider provider = getCursorProvider();
+      if (provider != null) {
+         provider.disableCleanup();
+      }
    }
 
    /**
@@ -1414,7 +1415,10 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
     */
    @Override
    public void enableCleanup() {
-      getCursorProvider().resumeCleanup();
+      final PageCursorProvider provider = getCursorProvider();
+      if (provider != null) {
+         provider.resumeCleanup();
+      }
    }
 
 
@@ -1480,41 +1484,6 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
                logger.debug(e2.getMessage(), e2);
             }
          }
-      }
-   }
-
-
-   private void openNewPage() throws Exception {
-      numberOfPages++;
-
-      checkNumberOfPages();
-
-      final long newPageId = currentPageId + 1;
-
-      if (logger.isTraceEnabled()) {
-         logger.trace("destination {} new pageNr={}", storeName, newPageId);
-      }
-
-      final Page oldPage = currentPage;
-      if (oldPage != null) {
-         oldPage.close(true);
-         oldPage.usageDown();
-         currentPage = null;
-      }
-
-      final Page newPage = newPageObject(newPageId);
-
-      resetCurrentPage(newPage);
-
-      currentPageSize = 0;
-
-      newPage.open(true);
-
-      currentPageId = newPageId;
-
-      if (newPageId < firstPageId) {
-         logger.debug("open new page, setting firstPageId = {}, it was {} before", newPageId, firstPageId);
-         firstPageId = newPageId;
       }
    }
 
@@ -1594,11 +1563,6 @@ public abstract class AbstractPagingStoreImpl implements PagingStore {
 
    protected PagingStoreFactory getStoreFactory() {
       return storeFactory;
-   }
-
-   @Override
-   public StorageMessageReader createStorageMessageReader(QueueImpl queue) {
-      return new PageStorageMessageReader(queue);
    }
 
 }

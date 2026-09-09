@@ -16,6 +16,7 @@
  */
 package org.apache.activemq.artemis.core.paging.dbimpl;
 
+import javax.transaction.NotSupportedException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
@@ -30,7 +31,10 @@ import org.apache.activemq.artemis.core.paging.impl.Page;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorageManager;
 import org.apache.activemq.artemis.core.server.RouteContextList;
+import org.apache.activemq.artemis.core.server.StorageMessageReader;
 import org.apache.activemq.artemis.core.server.impl.AddressInfo;
+import org.apache.activemq.artemis.core.server.impl.DatabaseStorageMessageReader;
+import org.apache.activemq.artemis.core.server.impl.QueueImpl;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
@@ -93,7 +97,12 @@ public class DatabasePagingStoreImpl extends AbstractPagingStoreImpl {
 
    @Override
    public Page newPageObject(final long pageNumber) throws Exception {
-      return new DatabasePage(getStoreName(), getStorageManager(), pageNumber, addressInfo.getId(), ((DatabaseStorageManager) getStorageManager()).getDataManager());
+      throw new NotSupportedException();
+   }
+
+   @Override
+   public StorageMessageReader createStorageMessageReader(QueueImpl queue) {
+      return new DatabaseStorageMessageReader(queue);
    }
 
    @Override

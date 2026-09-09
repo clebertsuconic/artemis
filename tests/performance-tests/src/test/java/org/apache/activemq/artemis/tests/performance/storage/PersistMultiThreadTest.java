@@ -42,6 +42,8 @@ import org.apache.activemq.artemis.core.replication.ReplicationManager;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.JournalType;
 import org.apache.activemq.artemis.core.server.RouteContextList;
+import org.apache.activemq.artemis.core.server.StorageMessageReader;
+import org.apache.activemq.artemis.core.server.impl.QueueImpl;
 import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.settings.impl.PageFullMessagePolicy;
@@ -290,6 +292,11 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
       @Override
       public void readLock() {
 
+      }
+
+      @Override
+      public StorageMessageReader createStorageMessageReader(QueueImpl queue) {
+         throw new UnsupportedOperationException();
       }
 
       @Override
