@@ -16,101 +16,11 @@
  */
 package org.apache.activemq.artemis.core.paging.dbimpl;
 
-import javax.transaction.NotSupportedException;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Supplier;
-
-import java.util.function.Function;
-
-import org.apache.activemq.artemis.api.core.Message;
-import org.apache.activemq.artemis.api.core.SimpleString;
-import org.apache.activemq.artemis.core.paging.PagingManager;
-import org.apache.activemq.artemis.core.paging.PagingStoreFactory;
-import org.apache.activemq.artemis.core.paging.impl.AbstractPagingStoreImpl;
-import org.apache.activemq.artemis.core.paging.impl.Page;
-import org.apache.activemq.artemis.core.persistence.StorageManager;
-import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorageManager;
-import org.apache.activemq.artemis.core.server.RouteContextList;
-import org.apache.activemq.artemis.core.server.StorageMessageReader;
-import org.apache.activemq.artemis.core.server.impl.AddressInfo;
-import org.apache.activemq.artemis.core.server.impl.DatabaseStorageMessageReader;
-import org.apache.activemq.artemis.core.server.impl.QueueImpl;
-import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
-import org.apache.activemq.artemis.core.transaction.Transaction;
-import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
+import org.apache.activemq.artemis.core.paging.impl.AddressSizeLimiter;
 
 /**
  * Database-backed {@link org.apache.activemq.artemis.core.paging.PagingStore} implementation.
  * Creates {@link DatabasePage} instances for page storage.
  */
-public class DatabasePagingStoreImpl extends AbstractPagingStoreImpl {
-
-   private final AddressInfo addressInfo;
-
-   public DatabasePagingStoreImpl(final SimpleString address,
-                                  final ScheduledExecutorService scheduledExecutor,
-                                  final long syncTimeout,
-                                  final PagingManager pagingManager,
-                                  final StorageManager storageManager,
-                                  final PagingStoreFactory storeFactory,
-                                  final SimpleString storeName,
-                                  final AddressSettings addressSettings,
-                                  final ArtemisExecutor executor,
-                                  final boolean syncNonTransactional,
-                                  final AddressInfo addressInfo) {
-      this(address, scheduledExecutor, syncTimeout, pagingManager,
-            storageManager, storeFactory,
-            storeName, addressSettings, executor, syncNonTransactional,
-            () -> false, addressInfo);
-   }
-
-   public DatabasePagingStoreImpl(final SimpleString address,
-                                  final ScheduledExecutorService scheduledExecutor,
-                                  final long syncTimeout,
-                                  final PagingManager pagingManager,
-                                  final StorageManager storageManager,
-                                  final PagingStoreFactory storeFactory,
-                                  final SimpleString storeName,
-                                  final AddressSettings addressSettings,
-                                  final ArtemisExecutor executor,
-                                  final boolean syncNonTransactional,
-                                  final Supplier<Boolean> purgePageFolder,
-                                  final AddressInfo addressInfo) {
-      super(address, scheduledExecutor, syncTimeout, pagingManager,
-            storageManager, storeFactory,
-            storeName, addressSettings, executor, syncNonTransactional,
-            purgePageFolder);
-      this.addressInfo = addressInfo;
-   }
-
-   public AddressInfo getAddressInfo() {
-      return addressInfo;
-   }
-
-
-
-   @Override
-   public boolean checkPageFileExists(final long pageNumber) {
-      // TODO: query database to check whether this page exists
-      return false;
-   }
-
-   @Override
-   public Page newPageObject(final long pageNumber) throws Exception {
-      throw new NotSupportedException();
-   }
-
-   @Override
-   public StorageMessageReader createStorageMessageReader(QueueImpl queue) {
-      return new DatabaseStorageMessageReader(queue);
-   }
-
-   @Override
-   protected int writePage(Message message,
-                           Transaction tx,
-                           RouteContextList listCtx,
-                           Function<Message, Message> pageDecorator,
-                           boolean useFlowControl) throws Exception {
-      return -1;
-   }
+public class DatabasePagingStoreImpl extends AddressSizeLimiter {
 }

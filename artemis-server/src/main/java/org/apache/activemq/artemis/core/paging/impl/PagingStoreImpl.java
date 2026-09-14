@@ -46,6 +46,9 @@ import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.paging.PagingStoreFactory;
 import org.apache.activemq.artemis.core.paging.cursor.PageCursorProvider;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
+import org.apache.activemq.artemis.core.paging.impl.AddressSizeLimiter;
+import org.apache.activemq.artemis.core.paging.impl.PageCache;
+import org.apache.activemq.artemis.core.paging.impl.PageTimedWriter;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
@@ -82,7 +85,7 @@ import java.lang.invoke.MethodHandles;
  *
  * @see PagingStore
  */
-public class PagingStoreImpl implements PagingStore {
+public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore{
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -106,18 +109,6 @@ public class PagingStoreImpl implements PagingStore {
 
    // this is used to batch and sync into paging asynchronously
    private PageTimedWriter timedWriter;
-
-   private long maxSize;
-
-   private int maxPageReadBytes = -1;
-
-   private int maxPageReadMessages = -1;
-
-   private int prefetchPageBytes = -1;
-
-   private int prefetchPageMessages = -1;
-
-   private long maxMessages;
 
    private volatile boolean pageFull;
 
@@ -148,9 +139,6 @@ public class PagingStoreImpl implements PagingStore {
    private final boolean usingGlobalMaxSize;
 
    private final ArtemisExecutor executor;
-
-   // Bytes consumed by the queue on the memory
-   private final SizeAwareMetric size;
 
    private volatile boolean full;
 
@@ -213,6 +201,8 @@ public class PagingStoreImpl implements PagingStore {
                           final ArtemisExecutor executor,
                           final boolean syncNonTransactional,
                           final Supplier<Boolean> purgePageFolder) {
+      super();
+
       Objects.requireNonNull(scheduledExecutor, "scheduledExecutor = null");
 
       Objects.requireNonNull(pagingManager, "Paging Manager can't be null");
@@ -222,10 +212,6 @@ public class PagingStoreImpl implements PagingStore {
       this.storageManager = storageManager;
 
       this.storeName = storeName;
-
-      this.size = new SizeAwareMetric(maxSize, maxSize, maxMessages, maxMessages).
-         setUnderCallback(this::underSized).setOverCallback(this::overSized).
-         setOnSizeCallback(pagingManager::addSize);
 
       applySetting(addressSettings, true);
 
@@ -276,31 +262,14 @@ public class PagingStoreImpl implements PagingStore {
       full = false;
       checkReleasedMemory();
    }
-
-   private void configureSizeMetric() {
-      size.setMax(maxSize, maxSize, maxMessages, maxMessages);
-   }
-
    @Override
    public void applySetting(final AddressSettings addressSettings) {
       applySetting(addressSettings, false);
    }
 
-   private void applySetting(final AddressSettings addressSettings, final boolean firstTime) {
-      maxSize = addressSettings.getMaxSizeBytes();
-
-      maxPageReadMessages = addressSettings.getMaxReadPageMessages();
-
-      prefetchPageMessages = addressSettings.getPrefetchPageMessages();
-
-      maxPageReadBytes = addressSettings.getMaxReadPageBytes();
-
-      prefetchPageBytes = addressSettings.getPrefetchPageBytes();
-
-      maxMessages = addressSettings.getMaxSizeMessages();
-
-      configureSizeMetric();
-
+   @Override
+   protected void applySetting(final AddressSettings addressSettings, final boolean firstTime) {
+      super.applySettings(addressSettings, firstTime);
       // JDBC has a maximum page size of 100K by default.
       // it can be reconfigured through jdbc-max-page-size-bytes in the JDBC configuration section
       pageSize = storageManager.getAllowedPageSize(addressSettings.getPageSizeBytes());
@@ -546,44 +515,15 @@ public class PagingStoreImpl implements PagingStore {
       return address;
    }
 
-   @Override
-   public long getAddressSize() {
-      return size.getSize();
-   }
 
-   @Override
-   public long getAddressElements() {
-      return size.getElements();
-   }
-
-   @Override
    public long getMaxSize() {
+      long maxSize = super.getMaxSize();
       if (maxSize <= 0) {
          // if maxSize <= 0, we will return 2 pages for de-page purposes
          return pageSize * 2L;
       } else {
          return maxSize;
       }
-   }
-
-   @Override
-   public int getMaxPageReadBytes() {
-      return maxPageReadBytes;
-   }
-
-   @Override
-   public int getPrefetchPageBytes() {
-      return prefetchPageBytes;
-   }
-
-   @Override
-   public int getMaxPageReadMessages() {
-      return maxPageReadMessages;
-   }
-
-   @Override
-   public int getPrefetchPageMessages() {
-      return prefetchPageMessages;
    }
 
    @Override
