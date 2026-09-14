@@ -90,6 +90,8 @@ public class PagingStoreImpl implements PagingStore {
 
    private final StorageManager storageManager;
 
+   private final DecimalFormat format = new DecimalFormat("000000000");
+
    private final PageCache usedPages = new PageCache(this);
 
    // This is updated and read by the Page's executor thread
@@ -97,7 +99,13 @@ public class PagingStoreImpl implements PagingStore {
 
    private final SimpleString storeName;
 
+   // The FileFactory is created lazily as soon as the first write is attempted
+   private volatile SequentialFileFactory fileFactory;
+
    private final PagingStoreFactory storeFactory;
+
+   // this is used to batch and sync into paging asynchronously
+   private PageTimedWriter timedWriter;
 
    private long maxSize;
 
@@ -156,6 +164,8 @@ public class PagingStoreImpl implements PagingStore {
 
    private volatile boolean paging = false;
 
+   private final PageCursorProvider cursorProvider;
+
    // This lock mostly protects the paging field. It is also used to block producers in eventual cases such as dropping
    // a queue, but mostly to protect if the storage is in paging mode.
    private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -173,20 +183,6 @@ public class PagingStoreImpl implements PagingStore {
    private final Supplier<Boolean> purgePageFolder;
 
    private final ScheduledExecutorService scheduledExecutorService;
-
-   // --- PagingStoreImpl-specific fields ---
-
-   private final DecimalFormat format = new DecimalFormat("000000000");
-
-   private final PageCursorProvider cursorProvider;
-
-   private volatile SequentialFileFactory fileFactory;
-
-   private PageTimedWriter timedWriter;
-
-   private final long syncTimeout;
-
-   // ----------------------------------------
 
    public PagingStoreImpl(final SimpleString address,
                           final ScheduledExecutorService scheduledExecutor,
@@ -218,11 +214,15 @@ public class PagingStoreImpl implements PagingStore {
                           final boolean syncNonTransactional,
                           final Supplier<Boolean> purgePageFolder) {
       Objects.requireNonNull(scheduledExecutor, "scheduledExecutor = null");
+
       Objects.requireNonNull(pagingManager, "Paging Manager can't be null");
 
       this.address = address;
+
       this.storageManager = storageManager;
+
       this.storeName = storeName;
+
       this.size = new SizeAwareMetric(maxSize, maxSize, maxMessages, maxMessages).
          setUnderCallback(this::underSized).setOverCallback(this::overSized).
          setOnSizeCallback(pagingManager::addSize);
@@ -230,17 +230,24 @@ public class PagingStoreImpl implements PagingStore {
       applySetting(addressSettings, true);
 
       this.executor = executor;
-      this.pagingManager = pagingManager;
-      this.purgePageFolder = purgePageFolder;
-      this.storeFactory = storeFactory;
-      this.syncNonTransactional = syncNonTransactional;
-      this.usingGlobalMaxSize = pagingManager.isUsingGlobalSize();
-      this.scheduledExecutorService = scheduledExecutor;
 
-      this.cursorProvider = storeFactory.newCursorProvider(this, storageManager, addressSettings, executor);
+      this.pagingManager = pagingManager;
+
       this.fileFactory = fileFactory;
-      this.syncTimeout = syncTimeout;
+
+      this.purgePageFolder = purgePageFolder;
+
+      this.storeFactory = storeFactory;
+
+      this.syncNonTransactional = syncNonTransactional;
+
       this.timedWriter = createPageTimedWriter(scheduledExecutor, syncTimeout);
+
+      this.cursorProvider = storeFactory.newCursorProvider(this, this.storageManager, addressSettings, executor);
+
+      this.usingGlobalMaxSize = pagingManager.isUsingGlobalSize();
+
+      this.scheduledExecutorService = scheduledExecutor;
    }
 
    // Extension point for unit tests to replace the creation of the PageTimedWriter
@@ -260,8 +267,6 @@ public class PagingStoreImpl implements PagingStore {
    public PageTimedWriter getPageTimedWriter() {
       return timedWriter;
    }
-
-   // --- SizeAwareMetric callbacks ---
 
    private void overSized() {
       full = true;
@@ -406,7 +411,7 @@ public class PagingStoreImpl implements PagingStore {
       }
    }
 
-   protected void checkNumberOfPages() {
+   private void checkNumberOfPages() {
       if (!isBelowPageLimitBytes()) {
          this.pageFull = true;
          ActiveMQServerLogger.LOGGER.pageFullMaxBytes(storeName, numberOfPages, estimatedMaxPages, pageLimitBytes, pageSize);
@@ -638,21 +643,9 @@ public class PagingStoreImpl implements PagingStore {
       return numberOfPages;
    }
 
-   protected void setNumberOfPages(long numberOfPages) {
-      this.numberOfPages = numberOfPages;
-   }
-
    @Override
    public long getCurrentWritingPage() {
       return currentPageId;
-   }
-
-   protected void setCurrentPageId(long currentPageId) {
-      this.currentPageId = currentPageId;
-   }
-
-   protected void setFirstPageId(long firstPageId) {
-      this.firstPageId = firstPageId;
    }
 
    @Override
@@ -746,6 +739,16 @@ public class PagingStoreImpl implements PagingStore {
       }
    }
 
+   public int getNumberOfFiles() throws Exception {
+      final SequentialFileFactory fileFactory = this.fileFactory;
+      if (fileFactory != null) {
+         List<String> files = fileFactory.listFiles("page");
+         return files.size();
+      }
+
+      return 0;
+   }
+
    @Override
    public void start() throws Exception {
       writeLock();
@@ -762,58 +765,54 @@ public class PagingStoreImpl implements PagingStore {
          } else {
             running = true;
             firstPageId = Long.MAX_VALUE;
-            initializePages();
+
+            // There are no files yet on this Storage. We will just return it empty
+            final SequentialFileFactory fileFactory = this.fileFactory;
+            if (fileFactory != null) {
+
+               int pageId = 0;
+               currentPageId = pageId;
+               assert currentPage == null;
+               currentPage = null;
+
+               List<String> files = fileFactory.listFiles("page");
+
+               numberOfPages = files.size();
+
+               checkNumberOfPages();
+
+               for (String fileName : files) {
+                  final int fileId = getPageIdFromFileName(fileName);
+
+                  if (fileId > pageId) {
+                     pageId = fileId;
+                  }
+
+                  if (fileId < firstPageId) {
+                     firstPageId = fileId;
+                  }
+               }
+
+               currentPageId = pageId;
+
+               if (pageId != 0) {
+                  reloadLivePage(pageId);
+               }
+
+               // We will not mark it for paging if there's only a single empty file
+               final Page page = currentPage;
+               if (page != null && !(numberOfPages == 1 && page.getSize() == 0)) {
+                  startPaging();
+               }
+
+               if (timedWriter != null) {
+                  timedWriter.start();
+               }
+            }
          }
 
       } finally {
          writeUnlock();
-      }
-   }
-
-   protected void initializePages() throws Exception {
-      final SequentialFileFactory fileFactory = this.fileFactory;
-      if (fileFactory != null) {
-
-         int pageId = 0;
-         setCurrentPageId(pageId);
-         assert getCurrentPage() == null;
-
-         List<String> files = fileFactory.listFiles("page");
-
-         setNumberOfPages(files.size());
-
-         checkNumberOfPages();
-
-         long firstPage = Long.MAX_VALUE;
-         for (String fileName : files) {
-            final int fileId = getPageIdFromFileName(fileName);
-
-            if (fileId > pageId) {
-               pageId = fileId;
-            }
-
-            if (fileId < firstPage) {
-               firstPage = fileId;
-            }
-         }
-
-         setCurrentPageId(pageId);
-
-         if (firstPage != Long.MAX_VALUE) {
-            setFirstPageId(firstPage);
-         }
-
-         if (pageId != 0) {
-            reloadLivePage(pageId);
-         }
-
-         // We will not mark it for paging if there's only a single empty file
-         final Page page = getCurrentPage();
-         if (page != null && !(getNumberOfPages() == 1 && page.getSize() == 0)) {
-            startPaging();
-         }
-
-         timedWriter.start();
       }
    }
 
@@ -1061,6 +1060,65 @@ public class PagingStoreImpl implements PagingStore {
             throw new RuntimeException(e.getMessage(), e);
          }
       }
+   }
+
+   protected SequentialFileFactory getFileFactory() throws Exception {
+      checkFileFactory();
+      return fileFactory;
+   }
+
+   protected boolean deleteFolder() {
+      SequentialFileFactory sequentialFileFactory = fileFactory;
+      try {
+         if (sequentialFileFactory != null) {
+            List<String> files;
+            try {
+               files = sequentialFileFactory.listFiles(null);
+            } catch (Exception e) {
+               sequentialFileFactory.onIOError(e, e.getMessage());
+               return false;
+            }
+            files.forEach(f -> {
+               SequentialFile file = sequentialFileFactory.createSequentialFile(f);
+               try {
+                  logger.debug("Deleting {}", file);
+                  file.delete();
+               } catch (Exception e) {
+                  logger.warn(e.getMessage(), e);
+                  sequentialFileFactory.onIOError(e, e.getMessage(), file.getFileName());
+               }
+            });
+            logger.debug("Deleting directory {}", sequentialFileFactory.getDirectory());
+            return deleteFolder(sequentialFileFactory);
+         }
+         return true;
+      } finally {
+         this.fileFactory = null;
+      }
+   }
+
+   private boolean deleteFolder(final SequentialFileFactory deletingFolder) {
+      if (!deletingFolder.deleteFolder()) {
+         ActiveMQServerLogger.LOGGER.failedPurgingFolder(deletingFolder.getDirectory().getAbsolutePath());
+         try {
+            List<String> filesStillExisting = deletingFolder.listFiles(null);
+            filesStillExisting.forEach(f -> logger.info("File {} still on folder {}", f, deletingFolder.getDirectory().getAbsolutePath()));
+         } catch (Exception e) {
+            logger.warn(e.getMessage(), e);
+         }
+         return false;
+      } else {
+         return true;
+      }
+   }
+
+   private SequentialFileFactory checkFileFactory() throws Exception {
+      SequentialFileFactory factory = fileFactory;
+      if (factory == null) {
+         factory = getStoreFactory().newFileFactory(getStoreName());
+         fileFactory = factory;
+      }
+      return factory;
    }
 
    @Override
@@ -1644,20 +1702,6 @@ public class PagingStoreImpl implements PagingStore {
       }
    }
 
-   private void removeFromStoreFactory() {
-      if (fileFactory != null) {
-         try {
-            getStoreFactory().removeFileFactory(fileFactory);
-         } catch (Exception e) {
-            logger.warn(e.getMessage(), e);
-         }
-      }
-   }
-
-   private boolean hasStorage() {
-      return fileFactory != null;
-   }
-
    // To be used on isDropMessagesWhenFull
    @Override
    public boolean isFull() {
@@ -1756,20 +1800,18 @@ public class PagingStoreImpl implements PagingStore {
       return storeFactory;
    }
 
-   // --- FileFactory methods ---
-
-   protected SequentialFileFactory checkFileFactory() throws Exception {
-      SequentialFileFactory factory = fileFactory;
-      if (factory == null) {
-         factory = getStoreFactory().newFileFactory(getStoreName());
-         fileFactory = factory;
+   private void removeFromStoreFactory() {
+      if (fileFactory != null) {
+         try {
+            getStoreFactory().removeFileFactory(fileFactory);
+         } catch (Exception e) {
+            logger.warn(e.getMessage(), e);
+         }
       }
-      return factory;
    }
 
-   protected SequentialFileFactory getFileFactory() throws Exception {
-      checkFileFactory();
-      return fileFactory;
+   private boolean hasStorage() {
+      return fileFactory != null;
    }
 
    public String createFileName(final long pageID) {
@@ -1780,61 +1822,6 @@ public class PagingStoreImpl implements PagingStore {
 
    private static int getPageIdFromFileName(final String fileName) {
       return Integer.parseInt(fileName.substring(0, fileName.indexOf('.')));
-   }
-
-   public int getNumberOfFiles() throws Exception {
-      final SequentialFileFactory fileFactory = this.fileFactory;
-      if (fileFactory != null) {
-         List<String> files = fileFactory.listFiles("page");
-         return files.size();
-      }
-
-      return 0;
-   }
-
-   protected boolean deleteFolder() {
-      SequentialFileFactory sequentialFileFactory = fileFactory;
-      try {
-         if (sequentialFileFactory != null) {
-            List<String> files;
-            try {
-               files = sequentialFileFactory.listFiles(null);
-            } catch (Exception e) {
-               sequentialFileFactory.onIOError(e, e.getMessage());
-               return false;
-            }
-            files.forEach(f -> {
-               SequentialFile file = sequentialFileFactory.createSequentialFile(f);
-               try {
-                  logger.debug("Deleting {}", file);
-                  file.delete();
-               } catch (Exception e) {
-                  logger.warn(e.getMessage(), e);
-                  sequentialFileFactory.onIOError(e, e.getMessage(), file.getFileName());
-               }
-            });
-            logger.debug("Deleting directory {}", sequentialFileFactory.getDirectory());
-            return deleteFolderInternal(sequentialFileFactory);
-         }
-         return true;
-      } finally {
-         this.fileFactory = null;
-      }
-   }
-
-   private boolean deleteFolderInternal(final SequentialFileFactory deletingFolder) {
-      if (!deletingFolder.deleteFolder()) {
-         ActiveMQServerLogger.LOGGER.failedPurgingFolder(deletingFolder.getDirectory().getAbsolutePath());
-         try {
-            List<String> filesStillExisting = deletingFolder.listFiles(null);
-            filesStillExisting.forEach(f -> logger.info("File {} still on folder {}", f, deletingFolder.getDirectory().getAbsolutePath()));
-         } catch (Exception e) {
-            logger.warn(e.getMessage(), e);
-         }
-         return false;
-      } else {
-         return true;
-      }
    }
 
    private void openNewPage() throws Exception {

@@ -16,8 +16,15 @@
  */
 package org.apache.activemq.artemis.core.paging.impl;
 
-import org.apache.activemq.artemis.core.paging.PagingStore;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Supplier;
 
-@Deprecated
+import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.core.paging.PagingManager;
+import org.apache.activemq.artemis.core.paging.PagingStore;
+import org.apache.activemq.artemis.core.paging.PagingStoreFactory;
+import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
+import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
 public abstract class AbstractPagingStoreImpl {
 }
