@@ -70,6 +70,9 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
 
    AddressFullMessagePolicy getAddressFullMessagePolicy();
 
+   default void enforceAddressFullMessagePolicy(AddressFullMessagePolicy enforcedAddressFullMessagePolicy) {
+   }
+
    PageFullMessagePolicy getPageFullMessagePolicy();
 
    Long getPageLimitMessages();

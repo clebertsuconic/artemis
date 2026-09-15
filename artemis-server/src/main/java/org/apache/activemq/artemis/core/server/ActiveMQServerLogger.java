@@ -199,7 +199,7 @@ public interface ActiveMQServerLogger {
    void switchingNIO();
 
    @LogMessage(id = 221046, value = "Unblocking message production on address '{}'; {}", level = LogMessage.Level.INFO)
-   void unblockingMessageProduction(String addressName, String sizeInfo);
+   void unblockingMessageProduction(SimpleString addressName, String sizeInfo);
 
    @LogMessage(id = 221047, value = "Backup Server has scaled down to primary server", level = LogMessage.Level.INFO)
    void backupServerScaledDown();
@@ -402,13 +402,13 @@ public interface ActiveMQServerLogger {
    void pageStoreFactoryNoIdFile(String s, String addressFile);
 
    @LogMessage(id = 222036, value = "Timed out on waiting PagingStore {} to shutdown", level = LogMessage.Level.WARN)
-   void pageStoreTimeout(String address);
+   void pageStoreTimeout(SimpleString address);
 
    @LogMessage(id = 222037, value = "IO Error, impossible to start paging", level = LogMessage.Level.WARN)
    void pageStoreStartIOError(Exception e);
 
    @LogMessage(id = 222038, value = "Starting paging on address '{}'; {}", level = LogMessage.Level.INFO)
-   void pageStoreStart(String storeName, String sizeInfo);
+   void pageStoreStart(SimpleString storeName, String sizeInfo);
 
    @LogMessage(id = 222039, value = "Messages sent to address '{}' are being dropped; {}", level = LogMessage.Level.WARN)
    void pageStoreDropMessages(SimpleString storeName, String sizeInfo);
@@ -751,7 +751,7 @@ public interface ActiveMQServerLogger {
    void failedToScaleDown(Throwable e);
 
    @LogMessage(id = 222183, value = "Blocking message production on address '{}'; {}", level = LogMessage.Level.WARN)
-   void blockingMessageProduction(String addressName, String pageInfo);
+   void blockingMessageProduction(SimpleString addressName, String pageInfo);
 
    @LogMessage(id = 222184, value = "Unable to recover group bindings in SCALE_DOWN mode, only FULL backup server can do this", level = LogMessage.Level.WARN)
    void groupBindingsOnRecovery();
@@ -826,7 +826,7 @@ public interface ActiveMQServerLogger {
    void maxDiskUsageRestored(String usableSpace, String totalSpace, String usage);
 
    @LogMessage(id = 222212, value = "Disk Full! Blocking message production on address '{}'. Clients will report blocked.", level = LogMessage.Level.WARN)
-   void blockingDiskFull(String addressName);
+   void blockingDiskFull(SimpleString addressName);
 
    @LogMessage(id = 222213, value = "There was an issue on the network, server is isolated!", level = LogMessage.Level.WARN)
    void serverIsolatedOnNetwork();
@@ -1391,10 +1391,10 @@ public interface ActiveMQServerLogger {
    void autoRemoveAddress(String name);
 
    @LogMessage(id = 224114, value = "Address control block, blocking message production on address '{}'. Clients will not get further credit.", level = LogMessage.Level.INFO)
-   void blockingViaControl(String addressName);
+   void blockingViaControl(SimpleString addressName);
 
    @LogMessage(id = 224115, value = "Address control unblock of address '{}'. Clients will be granted credit as normal.", level = LogMessage.Level.INFO)
-   void unblockingViaControl(String addressName);
+   void unblockingViaControl(SimpleString addressName);
 
    @LogMessage(id = 224116, value = "The component {} is not responsive. The Server may be taking too long to activate", level = LogMessage.Level.WARN)
    void tooLongToStart(Object component);

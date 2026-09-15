@@ -25,12 +25,13 @@ import org.apache.activemq.artemis.core.paging.PageTransactionInfo;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 
+import org.apache.activemq.artemis.core.paging.impl.AddressSizeLimiter;
 import org.apache.activemq.artemis.core.server.files.FileStoreMonitor;
 
 public class FakePagingManager implements PagingManager {
 
    @Override
-   public void addBlockedStore(PagingStore store) {
+   public void addBlockedStore(AddressSizeLimiter store) {
    }
 
    @Override

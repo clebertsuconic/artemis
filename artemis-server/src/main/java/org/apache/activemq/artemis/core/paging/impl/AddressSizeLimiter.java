@@ -27,6 +27,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.apache.activemq.artemis.api.core.Message;
+import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.server.ActiveMQMessageBundle;
@@ -50,7 +51,7 @@ public abstract class AddressSizeLimiter {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-   private String address;
+   private final SimpleString address;
 
    protected long maxSize;
 
@@ -88,8 +89,14 @@ public abstract class AddressSizeLimiter {
 
    protected volatile boolean running = false;
 
+   protected boolean printedDropMessagesWarning;
+
    public boolean isStarted() {
       return running;
+   }
+
+   public SimpleString getAddress() {
+      return address;
    }
 
    // Internal components such as mirroring could enforce a different page full message policy
@@ -175,7 +182,7 @@ public abstract class AddressSizeLimiter {
       return rejectThreshold != AddressSettings.DEFAULT_ADDRESS_REJECT_THRESHOLD && getAddressSize() > rejectThreshold;
    }
 
-   public AddressSizeLimiter(StorageManager storageManager, PagingManager pagingManager, String address, ArtemisExecutor executor) {
+   public AddressSizeLimiter(StorageManager storageManager, PagingManager pagingManager, SimpleString address, ArtemisExecutor executor) {
       this.executor = executor;
       this.address = address;
       this.pagingManager = pagingManager;
@@ -212,12 +219,6 @@ public abstract class AddressSizeLimiter {
       return addressFullMessagePolicy;
    }
 
-   public AddressSizeLimiter enforceAddressFullMessagePolicy(AddressFullMessagePolicy enforcedAddressFullMessagePolicy) {
-      this.addressFullMessagePolicy = enforcedAddressFullMessagePolicy;
-      this.enforcedAddressFullMessagePolicy = enforcedAddressFullMessagePolicy;
-      return this;
-   }
-
    protected void configureSizeMetric() {
       size.setMax(maxSize, maxSize, maxMessages, maxMessages);
    }
@@ -251,6 +252,11 @@ public abstract class AddressSizeLimiter {
       diskFullMessagePolicy = addressSettings.getDiskFullMessagePolicy();
 
       rejectThreshold = addressSettings.getMaxSizeBytesRejectThreshold();
+   }
+
+   public void enforceAddressFullMessagePolicy(AddressFullMessagePolicy enforcedAddressFullMessagePolicy) {
+      this.addressFullMessagePolicy = enforcedAddressFullMessagePolicy;
+      this.enforcedAddressFullMessagePolicy = enforcedAddressFullMessagePolicy;
    }
 
 
@@ -324,7 +330,9 @@ public abstract class AddressSizeLimiter {
       }
    }
 
-   protected abstract boolean beginPage();
+   protected boolean beginPage() {
+      return true;
+   }
 
 
    public long addSize(final int size, boolean sizeOnly, boolean affectGlobal) {
@@ -528,10 +536,61 @@ public abstract class AddressSizeLimiter {
    }
 
 
-   protected String getInfo() {
-      return "AddressSizeLimiter::" + this.address;
+   /**
+    * Checks whether the address is full and applies the configured {@link AddressFullMessagePolicy}.
+    *
+    * @return {@code null} if the address is not full and processing should continue;
+    *         {@code 0} if the message was dropped (caller must return this value);
+    *         {@code -1} if the policy is BLOCK or the address is not full under DROP/FAIL
+    *         (caller must return this value);
+    *         throws {@link org.apache.activemq.artemis.api.core.ActiveMQAddressFullException}
+    *         if the policy is {@link AddressFullMessagePolicy#FAIL}.
+    */
+   protected Integer validateAddressFull(Message message) throws Exception {
+      boolean full = isFull();
+
+      if (addressFullMessagePolicy == AddressFullMessagePolicy.DROP || addressFullMessagePolicy == AddressFullMessagePolicy.FAIL) {
+         if (full) {
+            message.setDropped(true);
+
+            if (message.isLargeMessage()) {
+               ((LargeServerMessage) message).deleteFile();
+            }
+
+            if (addressFullMessagePolicy == AddressFullMessagePolicy.FAIL) {
+               throw ActiveMQMessageBundle.BUNDLE.addressIsFull(address);
+            }
+
+            // Address is full, we just pretend we are paging, and drop the data
+            if (!printedDropMessagesWarning) {
+               printedDropMessagesWarning = true;
+               ActiveMQServerLogger.LOGGER.pageStoreDropMessages(address, getInfo());
+            }
+            return 0;
+         } else {
+            return -1;
+         }
+      } else if (addressFullMessagePolicy == AddressFullMessagePolicy.BLOCK) {
+         return -1;
+      }
+      return null;
    }
 
+   /**
+    * Checks whether the address full policy applies to this message.
+    * Subclasses should override this method and call {@code super.checkFullPolicies(message)} first,
+    * returning early if the result is non-null, then apply their additional checks.
+    *
+    * @return {@code null} if no policy triggered and processing should continue;
+    *         otherwise the value the caller must return immediately.
+    */
+   protected Integer checkFullPolicies(Message message) throws Exception {
+      return validateAddressFull(message);
+   }
+
+   protected String getInfo() {
+      return String.format("size=%d bytes (%d messages); maxSize=%d bytes (%d messages); globalSize=%d bytes (%d messages); globalMaxSize=%d bytes (%d messages);", size.getSize(), size.getElements(), maxSize, maxMessages, pagingManager.getGlobalSize(), pagingManager.getGlobalMessages(), pagingManager.getMaxSize(), pagingManager.getMaxMessages());
+   }
 
    public ArtemisExecutor getExecutor() {
       return executor;

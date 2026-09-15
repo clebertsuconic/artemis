@@ -111,8 +111,6 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
 
    private int pageSize;
 
-   private boolean printedDropMessagesWarning;
-
    private long numberOfPages;
 
    private long firstPageId;
@@ -153,7 +151,7 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
                           final ArtemisExecutor executor,
                           final boolean syncNonTransactional,
                           final Supplier<Boolean> purgePageFolder) {
-      super(storageManager, pagingManager, String.valueOf(address), executor);
+      super(storageManager, pagingManager, address, executor);
 
       Objects.requireNonNull(scheduledExecutor, "scheduledExecutor = null");
 
@@ -637,11 +635,6 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
    }
 
    @Override
-   protected String getInfo() {
-      return String.format("size=%d bytes (%d messages); maxSize=%d bytes (%d messages); globalSize=%d bytes (%d messages); globalMaxSize=%d bytes (%d messages);", size.getSize(), size.getElements(), maxSize, maxMessages, pagingManager.getGlobalSize(), pagingManager.getGlobalMessages(), pagingManager.getMaxSize(), pagingManager.getMaxMessages());
-   }
-
-   @Override
    protected boolean beginPage() {
       try {
          if (currentPage == null) {
@@ -998,15 +991,14 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
    }
 
    /**
-    * Runs all full-policy checks (disk, address, page) in order.
-    *
-    * @return {@code null} if no policy triggered and processing should continue;
-    *         otherwise the value the caller must return immediately.
+    * Extends the base address-full check with disk-full and page-full checks.
+    * {@inheritDoc}
     */
+   @Override
    protected Integer checkFullPolicies(Message message) throws Exception {
-      Integer result;
+      Integer result = super.checkFullPolicies(message);
+      if (result != null) return result;
       if ((result = validateDiskFull(message)) != null) return result;
-      if ((result = validateAddressFull(message)) != null) return result;
       if ((result = validatePageFull(message)) != null) return result;
       return null;
    }
@@ -1027,7 +1019,7 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
          }
 
          if (pageFullMessagePolicy == PageFullMessagePolicy.FAIL) {
-            throw ActiveMQMessageBundle.BUNDLE.addressIsFull(address.toString());
+            throw ActiveMQMessageBundle.BUNDLE.addressIsFull(address);
          }
 
          if (!printedDropMessagesWarning) {
@@ -1038,47 +1030,6 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
          // we are in page mode, if we got to this point, we are dropping the message while still paging
          // we return 0 as in the storage is in "page mode" however no credits are being taken.
          return 0;
-      }
-      return null;
-   }
-
-
-   /**
-    * Checks whether the address is full and applies the configured {@link AddressFullMessagePolicy}.
-    *
-    * @return {@code null} if the address is not full and processing should continue;
-    *         {@code 0} if the message was dropped (caller must return this value);
-    *         {@code -1} if the policy is BLOCK or the address is not full under DROP/FAIL
-    *         (caller must return this value);
-    *         throws {@link org.apache.activemq.artemis.api.core.ActiveMQAddressFullException}
-    *         if the policy is {@link AddressFullMessagePolicy#FAIL}.
-    */
-   protected Integer validateAddressFull(Message message) throws Exception {
-      boolean full = isFull();
-
-      if (addressFullMessagePolicy == AddressFullMessagePolicy.DROP || addressFullMessagePolicy == AddressFullMessagePolicy.FAIL) {
-         if (full) {
-            message.setDropped(true);
-
-            if (message.isLargeMessage()) {
-               ((LargeServerMessage) message).deleteFile();
-            }
-
-            if (addressFullMessagePolicy == AddressFullMessagePolicy.FAIL) {
-               throw ActiveMQMessageBundle.BUNDLE.addressIsFull(address.toString());
-            }
-
-            // Address is full, we just pretend we are paging, and drop the data
-            if (!printedDropMessagesWarning) {
-               printedDropMessagesWarning = true;
-               ActiveMQServerLogger.LOGGER.pageStoreDropMessages(storeName, getInfo());
-            }
-            return 0;
-         } else {
-            return -1;
-         }
-      } else if (addressFullMessagePolicy == AddressFullMessagePolicy.BLOCK) {
-         return -1;
       }
       return null;
    }
@@ -1102,7 +1053,7 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
             }
 
             if (diskFullMessagePolicy == DiskFullMessagePolicy.FAIL) {
-               throw ActiveMQMessageBundle.BUNDLE.addressIsFull(address.toString());
+               throw ActiveMQMessageBundle.BUNDLE.addressIsFull(address);
             }
 
             // Disk is full, just drop the data

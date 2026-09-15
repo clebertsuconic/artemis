@@ -69,8 +69,7 @@ public class DatabasePagingStoreFactory implements PagingStoreFactory {
 
    @Override
    public PagingStore newStore(final SimpleString address, final AddressSettings settings) {
-      AddressInfo addressInfo = addressInfoProvider.apply(address);
-      return new DatabasePagingStoreImpl(address, scheduledExecutor, syncTimeout, pagingManager, storageManager, this, address, settings, executorFactory.getExecutor().setFair(true), syncNonTransactional, addressInfo);
+      return new DatabasePagingStoreImpl(storageManager, pagingManager, address, executorFactory.getExecutor().setFair(true));
    }
 
    @Override

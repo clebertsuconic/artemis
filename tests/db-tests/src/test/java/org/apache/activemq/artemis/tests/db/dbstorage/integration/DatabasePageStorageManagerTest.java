@@ -153,7 +153,7 @@ public class DatabasePageStorageManagerTest extends AbstractStatementTest {
       DatabasePagingStoreFactory factory = new DatabasePagingStoreFactory(databaseStorageManager, 100, scheduledExecutorService, executorFactory, false, address -> addressInfo);
 
       PagingManager pagingManager = Mockito.mock(PagingManager.class);
-      DatabasePagingStoreImpl pagingStore = new DatabasePagingStoreImpl(SimpleString.of("testAddress"), scheduledExecutorService, 100, pagingManager, databaseStorageManager, factory, SimpleString.of("testAddress"), new AddressSettings(), executorFactory.getExecutor(), false, addressInfo);
+      DatabasePagingStoreImpl pagingStore = new DatabasePagingStoreImpl(databaseStorageManager, pagingManager, addressInfo.getName(), executorFactory.getExecutor());
 
       DatabasePage page = (DatabasePage) pagingStore.newPageObject(1);
       page.open(true);
