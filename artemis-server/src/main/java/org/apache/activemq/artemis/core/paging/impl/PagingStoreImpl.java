@@ -17,6 +17,7 @@
 package org.apache.activemq.artemis.core.paging.impl;
 
 import java.io.File;
+import java.lang.invoke.MethodHandles;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -24,13 +25,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -46,9 +42,6 @@ import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.paging.PagingStoreFactory;
 import org.apache.activemq.artemis.core.paging.cursor.PageCursorProvider;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
-import org.apache.activemq.artemis.core.paging.impl.AddressSizeLimiter;
-import org.apache.activemq.artemis.core.paging.impl.PageCache;
-import org.apache.activemq.artemis.core.paging.impl.PageTimedWriter;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
@@ -70,14 +63,10 @@ import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.core.transaction.TransactionOperation;
 import org.apache.activemq.artemis.core.transaction.TransactionPropertyIndexes;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
-import org.apache.activemq.artemis.utils.FutureLatch;
 import org.apache.activemq.artemis.utils.SimpleFutureImpl;
-import org.apache.activemq.artemis.utils.SizeAwareMetric;
 import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
-import org.apache.activemq.artemis.utils.runnables.AtomicRunnable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.lang.invoke.MethodHandles;
 
 /**
  * File-based {@link org.apache.activemq.artemis.core.paging.PagingStore} implementation.
@@ -85,7 +74,7 @@ import java.lang.invoke.MethodHandles;
  *
  * @see PagingStore
  */
-public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore{
+public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -122,7 +111,6 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore{
 
    private int pageSize;
 
-
    private boolean printedDropMessagesWarning;
 
    private long numberOfPages;
@@ -150,10 +138,7 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore{
                           final AddressSettings addressSettings,
                           final ArtemisExecutor executor,
                           final boolean syncNonTransactional) {
-      this(address, scheduledExecutor, syncTimeout, pagingManager,
-           storageManager, fileFactory, storeFactory,
-           storeName, addressSettings, executor, syncNonTransactional,
-           () -> false);
+      this(address, scheduledExecutor, syncTimeout, pagingManager, storageManager, fileFactory, storeFactory, storeName, addressSettings, executor, syncNonTransactional, () -> false);
    }
 
    public PagingStoreImpl(final SimpleString address,
@@ -168,7 +153,7 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore{
                           final ArtemisExecutor executor,
                           final boolean syncNonTransactional,
                           final Supplier<Boolean> purgePageFolder) {
-      super(pagingManager, String.valueOf(address), executor);
+      super(storageManager, pagingManager, String.valueOf(address), executor);
 
       Objects.requireNonNull(scheduledExecutor, "scheduledExecutor = null");
 
@@ -212,6 +197,7 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore{
    public PageTimedWriter getPageTimedWriter() {
       return timedWriter;
    }
+
    @Override
    public void applySetting(final AddressSettings addressSettings) {
       applySetting(addressSettings, false);
@@ -224,7 +210,6 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore{
       // JDBC has a maximum page size of 100K by default.
       // it can be reconfigured through jdbc-max-page-size-bytes in the JDBC configuration section
       pageSize = storageManager.getAllowedPageSize(addressSettings.getPageSizeBytes());
-
 
       pageFullMessagePolicy = addressSettings.getPageFullMessagePolicy();
       pageLimitBytes = addressSettings.getPageLimitBytes();
@@ -354,6 +339,7 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore{
          this.pageFull = false;
       }
    }
+
    @Override
    public PageCursorProvider getCursorProvider() {
       return cursorProvider;
@@ -374,7 +360,6 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore{
       return address;
    }
 
-
    public long getMaxSize() {
       long maxSize = super.getMaxSize();
       if (maxSize <= 0) {
@@ -384,6 +369,7 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore{
          return maxSize;
       }
    }
+
    @Override
    public int getPageSizeBytes() {
       return pageSize;
@@ -988,47 +974,86 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore{
    // TODO for tomorrow:
    // - remove one of the page methods
    // - rename the int page( method to allowRouting...   @Override
-   public boolean page(Message message,
-                       final Transaction tx,
-                       RouteContextList listCtx) throws Exception {
+   public boolean page(Message message, final Transaction tx, RouteContextList listCtx) throws Exception {
       return page(message, tx, listCtx, null, false) >= 0;
    }
 
    @Override
    public int page(Message message,
-                       final Transaction tx,
-                       RouteContextList listCtx,
-                       Function<Message, Message> pageDecorator,
-                       boolean useFlowControl) throws Exception {
+                   final Transaction tx,
+                   RouteContextList listCtx,
+                   Function<Message, Message> pageDecorator,
+                   boolean useFlowControl) throws Exception {
 
       if (!running) {
          return -1;
       }
 
-      boolean diskFull = pagingManager.isDiskFull();
-
-      if (diskFullMessagePolicy == DiskFullMessagePolicy.DROP || diskFullMessagePolicy == DiskFullMessagePolicy.FAIL) {
-         if (diskFull) {
-            message.setDropped(true);
-
-            if (message.isLargeMessage()) {
-               ((LargeServerMessage) message).deleteFile();
-            }
-
-            if (diskFullMessagePolicy == DiskFullMessagePolicy.FAIL) {
-               throw ActiveMQMessageBundle.BUNDLE.addressIsFull(address.toString());
-            }
-
-            // Dist is full, just drop the data
-            if (!printedDropMessagesWarning) {
-               printedDropMessagesWarning = true;
-               ActiveMQServerLogger.LOGGER.pageStoreDropMessages(storeName, getInfo());
-            }
-
-            return 0;
-         }
+      Integer policiesResult = checkFullPolicies(message);
+      if (policiesResult != null) {
+         return policiesResult;
       }
 
+      return writePage(message, tx, listCtx, pageDecorator, useFlowControl);
+   }
+
+   /**
+    * Runs all full-policy checks (disk, address, page) in order.
+    *
+    * @return {@code null} if no policy triggered and processing should continue;
+    *         otherwise the value the caller must return immediately.
+    */
+   protected Integer checkFullPolicies(Message message) throws Exception {
+      Integer result;
+      if ((result = validateDiskFull(message)) != null) return result;
+      if ((result = validateAddressFull(message)) != null) return result;
+      if ((result = validatePageFull(message)) != null) return result;
+      return null;
+   }
+
+
+   /**
+    * Checks whether the page is full and applies the configured {@link PageFullMessagePolicy}.
+    *
+    * @return {@code null} if the page is not full and processing should continue;
+    *         {@code 0} if the message was dropped (caller must return this value);
+    *         throws {@link org.apache.activemq.artemis.api.core.ActiveMQAddressFullException}
+    *         if the policy is {@link PageFullMessagePolicy#FAIL}.
+    */
+   protected Integer validatePageFull(Message message) throws Exception {
+      if (pageFull) {
+         if (message.isLargeMessage()) {
+            ((LargeServerMessage) message).deleteFile();
+         }
+
+         if (pageFullMessagePolicy == PageFullMessagePolicy.FAIL) {
+            throw ActiveMQMessageBundle.BUNDLE.addressIsFull(address.toString());
+         }
+
+         if (!printedDropMessagesWarning) {
+            printedDropMessagesWarning = true;
+            ActiveMQServerLogger.LOGGER.pageStoreDropMessages(storeName, getInfo());
+         }
+
+         // we are in page mode, if we got to this point, we are dropping the message while still paging
+         // we return 0 as in the storage is in "page mode" however no credits are being taken.
+         return 0;
+      }
+      return null;
+   }
+
+
+   /**
+    * Checks whether the address is full and applies the configured {@link AddressFullMessagePolicy}.
+    *
+    * @return {@code null} if the address is not full and processing should continue;
+    *         {@code 0} if the message was dropped (caller must return this value);
+    *         {@code -1} if the policy is BLOCK or the address is not full under DROP/FAIL
+    *         (caller must return this value);
+    *         throws {@link org.apache.activemq.artemis.api.core.ActiveMQAddressFullException}
+    *         if the policy is {@link AddressFullMessagePolicy#FAIL}.
+    */
+   protected Integer validateAddressFull(Message message) throws Exception {
       boolean full = isFull();
 
       if (addressFullMessagePolicy == AddressFullMessagePolicy.DROP || addressFullMessagePolicy == AddressFullMessagePolicy.FAIL) {
@@ -1055,28 +1080,43 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore{
       } else if (addressFullMessagePolicy == AddressFullMessagePolicy.BLOCK) {
          return -1;
       }
-
-      if (pageFull) {
-         if (message.isLargeMessage()) {
-            ((LargeServerMessage) message).deleteFile();
-         }
-
-         if (pageFullMessagePolicy == PageFullMessagePolicy.FAIL) {
-            throw ActiveMQMessageBundle.BUNDLE.addressIsFull(address.toString());
-         }
-
-         if (!printedDropMessagesWarning) {
-            printedDropMessagesWarning = true;
-            ActiveMQServerLogger.LOGGER.pageStoreDropMessages(storeName, getInfo());
-         }
-
-         // we are in page mode, if we got to this point, we are dropping the message while still paging
-         // we return 0 as in the storage is in "page mode" however no credits are being taken.
-         return 0;
-      }
-
-      return writePage(message, tx, listCtx, pageDecorator, useFlowControl);
+      return null;
    }
+
+
+   /**
+    * Checks whether the disk is full and applies the configured {@link DiskFullMessagePolicy}.
+    *
+    * @return {@code null} if the disk is not full and processing should continue;
+    *         {@code 0} if the message was dropped (caller must return this value);
+    *         throws {@link org.apache.activemq.artemis.api.core.ActiveMQAddressFullException}
+    *         if the policy is {@link DiskFullMessagePolicy#FAIL}.
+    */
+   protected Integer validateDiskFull(Message message) throws Exception {
+      if (diskFullMessagePolicy == DiskFullMessagePolicy.DROP || diskFullMessagePolicy == DiskFullMessagePolicy.FAIL) {
+         if (pagingManager.isDiskFull()) {
+            message.setDropped(true);
+
+            if (message.isLargeMessage()) {
+               ((LargeServerMessage) message).deleteFile();
+            }
+
+            if (diskFullMessagePolicy == DiskFullMessagePolicy.FAIL) {
+               throw ActiveMQMessageBundle.BUNDLE.addressIsFull(address.toString());
+            }
+
+            // Disk is full, just drop the data
+            if (!printedDropMessagesWarning) {
+               printedDropMessagesWarning = true;
+               ActiveMQServerLogger.LOGGER.pageStoreDropMessages(storeName, getInfo());
+            }
+
+            return 0;
+         }
+      }
+      return null;
+   }
+
 
    protected int writePage(Message message,
                            Transaction tx,
@@ -1130,7 +1170,9 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore{
       }
    }
 
-   protected void directWritePage(PagedMessage pagedMessage, boolean lineUp, boolean originalReplicated) throws Exception {
+   protected void directWritePage(PagedMessage pagedMessage,
+                                  boolean lineUp,
+                                  boolean originalReplicated) throws Exception {
       int bytesToWrite = pagedMessage.getEncodeSize() + PageReadWriter.SIZE_RECORD;
 
       currentPageSize += bytesToWrite;

@@ -24,13 +24,20 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
+import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.server.ActiveMQMessageBundle;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
+import org.apache.activemq.artemis.core.server.LargeServerMessage;
+import org.apache.activemq.artemis.core.server.RouteContextList;
 import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.settings.impl.DiskFullMessagePolicy;
+import org.apache.activemq.artemis.core.settings.impl.PageFullMessagePolicy;
+import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.FutureLatch;
 import org.apache.activemq.artemis.utils.SizeAwareMetric;
@@ -63,9 +70,9 @@ public abstract class AddressSizeLimiter {
 
    private volatile boolean blockedViaManagement = false;
 
-   private volatile AddressFullMessagePolicy addressFullMessagePolicy;
+   protected volatile AddressFullMessagePolicy addressFullMessagePolicy;
 
-   private DiskFullMessagePolicy diskFullMessagePolicy;
+   protected DiskFullMessagePolicy diskFullMessagePolicy;
 
    // This lock mostly protects the paging field. It is also used to block producers in eventual cases such as dropping
    // a queue, but mostly to protect if the storage is in paging mode.
@@ -95,7 +102,7 @@ public abstract class AddressSizeLimiter {
    // Bytes consumed by the queue on the memory
    private final SizeAwareMetric size;
 
-   private final PagingManager pagingManager;
+   protected final PagingManager pagingManager;
 
    private void overSized() {
       full = true;
@@ -274,6 +281,7 @@ public abstract class AddressSizeLimiter {
    public int getPrefetchPageMessages() {
       return prefetchPageMessages;
    }
+
 
    public boolean startPaging() {
       if (!running) {
