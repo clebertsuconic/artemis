@@ -22,6 +22,7 @@ import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 
 import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.core.paging.impl.AddressSizeLimiter;
 import org.apache.activemq.artemis.core.server.ActiveMQComponent;
 import org.apache.activemq.artemis.core.server.files.FileStoreMonitor;
 import org.apache.activemq.artemis.core.settings.HierarchicalRepositoryChangeListener;
@@ -77,7 +78,7 @@ public interface PagingManager extends ActiveMQComponent, HierarchicalRepository
 
    void resumeCleanup();
 
-   void addBlockedStore(PagingStore store);
+   void addBlockedStore(AddressSizeLimiter store);
 
    void injectMonitor(FileStoreMonitor monitor) throws Exception;
 

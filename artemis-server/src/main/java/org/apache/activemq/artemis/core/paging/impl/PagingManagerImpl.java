@@ -76,7 +76,7 @@ public class PagingManagerImpl implements PagingManager {
     */
    private final ReentrantReadWriteLock syncLock = new ReentrantReadWriteLock();
 
-   private final Set<PagingStore> blockedStored = new ConcurrentHashSet<>();
+   private final Set<AddressSizeLimiter> blockedStored = new ConcurrentHashSet<>();
 
    private final ConcurrentMap<SimpleString, PagingStore> stores = new ConcurrentHashMap<>();
 
@@ -183,11 +183,11 @@ public class PagingManagerImpl implements PagingManager {
    }
 
    @Override
-   public void addBlockedStore(PagingStore store) {
+   public void addBlockedStore(AddressSizeLimiter store) {
       blockedStored.add(store);
    }
 
-   public Set<PagingStore> getBlockedSet() {
+   public Set<AddressSizeLimiter> getBlockedSet() {
       return new HashSet<>(blockedStored);
    }
 
@@ -233,7 +233,7 @@ public class PagingManagerImpl implements PagingManager {
                memoryReleased();
             }
          }
-         blockedStored.removeIf(PagingStore::checkReleasedMemory);
+         blockedStored.removeIf(AddressSizeLimiter::checkReleasedMemory);
       }
    }
 

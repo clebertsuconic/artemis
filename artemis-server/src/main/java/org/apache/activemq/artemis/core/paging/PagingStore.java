@@ -70,10 +70,6 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
 
    AddressFullMessagePolicy getAddressFullMessagePolicy();
 
-   default PagingStore enforceAddressFullMessagePolicy(AddressFullMessagePolicy enforcedAddressFullMessagePolicy) {
-      return this;
-   }
-
    PageFullMessagePolicy getPageFullMessagePolicy();
 
    Long getPageLimitMessages();
@@ -201,7 +197,7 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
     *
     * @param sizeOnly if {@code false} we won't increment the number of messages. (add references for example)
     */
-   void addSize(int size, boolean sizeOnly, boolean affectGlobal);
+   long addSize(int size, boolean sizeOnly, boolean affectGlobal);
 
    default void addSize(int size, boolean sizeOnly) {
       addSize(size, sizeOnly, true);
