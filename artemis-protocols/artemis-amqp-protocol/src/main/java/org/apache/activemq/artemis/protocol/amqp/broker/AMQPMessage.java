@@ -896,16 +896,6 @@ public abstract class AMQPMessage extends RefCountMessage implements org.apache.
    public abstract int getMemoryEstimate();
 
    @Override
-   public int getOriginalEstimate() {
-      if (originalEstimate < 0) {
-         // getMemoryEstimate should initialize originalEstimate
-         return getMemoryEstimate();
-      } else {
-         return originalEstimate;
-      }
-   }
-
-   @Override
    public Map<String, Object> toPropertyMap(int valueSizeLimit) {
       return toPropertyMap(false, valueSizeLimit);
    }
