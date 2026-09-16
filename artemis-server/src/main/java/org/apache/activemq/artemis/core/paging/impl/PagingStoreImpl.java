@@ -151,7 +151,7 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
                           final ArtemisExecutor executor,
                           final boolean syncNonTransactional,
                           final Supplier<Boolean> purgePageFolder) {
-      super(storageManager, pagingManager, address, executor);
+      super(storageManager, pagingManager, address, addressSettings, executor);
 
       Objects.requireNonNull(scheduledExecutor, "scheduledExecutor = null");
 
@@ -162,8 +162,6 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
       this.storageManager = storageManager;
 
       this.storeName = storeName;
-
-      applySetting(addressSettings, true);
 
       this.fileFactory = fileFactory;
 
@@ -194,11 +192,6 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
 
    public PageTimedWriter getPageTimedWriter() {
       return timedWriter;
-   }
-
-   @Override
-   public void applySetting(final AddressSettings addressSettings) {
-      applySetting(addressSettings, false);
    }
 
    @Override

@@ -111,7 +111,16 @@ public abstract class AddressSizeLimiter {
 
    protected final PagingManager pagingManager;
 
+   public void start() throws Exception {
+      running = true;
+   }
+
+   public void stop() throws Exception {
+      running = false;
+   }
+
    private void overSized() {
+      new Exception("It's full").printStackTrace();
       full = true;
    }
 
@@ -182,13 +191,14 @@ public abstract class AddressSizeLimiter {
       return rejectThreshold != AddressSettings.DEFAULT_ADDRESS_REJECT_THRESHOLD && getAddressSize() > rejectThreshold;
    }
 
-   public AddressSizeLimiter(StorageManager storageManager, PagingManager pagingManager, SimpleString address, ArtemisExecutor executor) {
+   public AddressSizeLimiter(StorageManager storageManager, PagingManager pagingManager, SimpleString address, AddressSettings addressSettings, ArtemisExecutor executor) {
       this.executor = executor;
       this.address = address;
       this.pagingManager = pagingManager;
       this.storageManager = storageManager;
       this.size = new SizeAwareMetric().setUnderCallback(this::underSized).setOverCallback(this::overSized).
          setOnSizeCallback(pagingManager::addSize);
+      applySetting(addressSettings, true);
 
    }
 
@@ -225,6 +235,10 @@ public abstract class AddressSizeLimiter {
 
    public PagingManager getPagingManager() {
       return pagingManager;
+   }
+
+   public void applySetting(final AddressSettings addressSettings) {
+      applySetting(addressSettings, false);
    }
 
    protected void applySetting(final AddressSettings addressSettings, final boolean firstTime) {
@@ -338,10 +352,16 @@ public abstract class AddressSizeLimiter {
    public long addSize(final int size, boolean sizeOnly, boolean affectGlobal) {
       long newSize = this.size.addSize(size, sizeOnly, affectGlobal);
 
+      logger.info("AddSize {}, newSize = {}", size, newSize);
+
       boolean globalFull = pagingManager.isGlobalFull();
 
       if (newSize < 0) {
          ActiveMQServerLogger.LOGGER.negativeAddressSize(address.toString(), newSize);
+      }
+
+      if (isFull()) {
+         new Exception("It's full").printStackTrace();
       }
 
       if (addressFullMessagePolicy == AddressFullMessagePolicy.BLOCK || addressFullMessagePolicy == AddressFullMessagePolicy.FAIL) {

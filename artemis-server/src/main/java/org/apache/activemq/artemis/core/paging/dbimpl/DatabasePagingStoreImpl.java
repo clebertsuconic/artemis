@@ -48,8 +48,9 @@ public class DatabasePagingStoreImpl extends AddressSizeLimiter implements Pagin
    public DatabasePagingStoreImpl(StorageManager storageManager,
                                   PagingManager pagingManager,
                                   SimpleString address,
+                                  AddressSettings addressSettings,
                                   ArtemisExecutor executor) {
-      super(storageManager, pagingManager, address, executor);
+      super(storageManager, pagingManager, address, addressSettings, executor);
    }
 
    @Override
@@ -124,7 +125,7 @@ public class DatabasePagingStoreImpl extends AddressSizeLimiter implements Pagin
 
    @Override
    public boolean page(Message message, Transaction tx, RouteContextList listCtx) throws Exception {
-      return false;
+      return page(message, tx, listCtx, null, false) >= 0;
    }
 
    @Override
@@ -133,7 +134,13 @@ public class DatabasePagingStoreImpl extends AddressSizeLimiter implements Pagin
                    RouteContextList listCtx,
                    Function<Message, Message> pageDecorator,
                    boolean useFlowControl) throws Exception {
-      return 0;
+
+      Integer policiesResult = checkFullPolicies(message);
+      if (policiesResult != null) {
+         return policiesResult;
+      }
+
+      return -1;
    }
 
    @Override
@@ -249,16 +256,5 @@ public class DatabasePagingStoreImpl extends AddressSizeLimiter implements Pagin
 
    @Override
    public void refDown(Message message, int nonDurableCount) {
-
-   }
-
-   @Override
-   public void start() throws Exception {
-
-   }
-
-   @Override
-   public void stop() throws Exception {
-
    }
 }

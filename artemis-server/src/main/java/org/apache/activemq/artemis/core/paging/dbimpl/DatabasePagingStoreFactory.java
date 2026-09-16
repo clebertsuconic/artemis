@@ -69,7 +69,7 @@ public class DatabasePagingStoreFactory implements PagingStoreFactory {
 
    @Override
    public PagingStore newStore(final SimpleString address, final AddressSettings settings) {
-      return new DatabasePagingStoreImpl(storageManager, pagingManager, address, executorFactory.getExecutor().setFair(true));
+      return new DatabasePagingStoreImpl(storageManager, pagingManager, address, settings, executorFactory.getExecutor().setFair(true));
    }
 
    @Override
