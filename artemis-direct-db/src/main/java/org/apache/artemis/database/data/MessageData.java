@@ -24,19 +24,21 @@ import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.artemis.database.worker.DataWorker;
 
 public class MessageData extends DBData {
-   public MessageData(long messageID, Supplier<ActiveMQBuffer> messageBufferSupplier, Long tx, IOCompletion context) {
+   public MessageData(long messageID, Supplier<ActiveMQBuffer> messageBufferSupplier, Long tx, int memoryEstimate, IOCompletion context) {
       super(context);
       this.messageID = messageID;
       this.messageBufferSupplier = messageBufferSupplier;
       this.tx = tx;
+      this.memoryEstimate = memoryEstimate;
    }
-   public MessageData(long messageID, Supplier<ActiveMQBuffer> messageBufferSupplier, Long tx) {
-      this(messageID, messageBufferSupplier, tx, null);
+   public MessageData(long messageID, Supplier<ActiveMQBuffer> messageBufferSupplier, Long tx, int memoryEstimate) {
+      this(messageID, messageBufferSupplier, tx, memoryEstimate, null);
    }
 
    public final long messageID;
    public final Supplier<ActiveMQBuffer> messageBufferSupplier;
    public final Long tx;
+   public final int memoryEstimate;
 
    @Override
    public void perform(DataWorker worker) {
@@ -45,6 +47,6 @@ public class MessageData extends DBData {
 
    @Override
    public String toString() {
-      return "MessageData{" + "messageID=" + messageID + ", tx=" + tx + '}';
+      return "MessageData{" + "messageID=" + messageID + ", tx=" + tx + ", memoryEstimate=" + memoryEstimate + '}';
    }
 }

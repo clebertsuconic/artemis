@@ -26,13 +26,13 @@ import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfigurat
 import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorageManager;
 import org.apache.activemq.artemis.utils.TableOut;
 import org.apache.artemis.database.DatabaseProvider;
+import org.apache.artemis.database.data.MessageDataReferenceMerged;
 import org.apache.artemis.database.queries.AddressJDBCQuery;
 import org.apache.artemis.database.queries.GenericDataJDBCQuery;
-import org.apache.artemis.database.queries.MessagesJDBCQuery;
+import org.apache.artemis.database.queries.MessagesAndReferencesDBQuery;
 import org.apache.artemis.database.queries.PageJDBCQuery;
 import org.apache.artemis.database.queries.PageRefJDBCQuery;
 import org.apache.artemis.database.queries.QueueJDBCQuery;
-import org.apache.artemis.database.queries.ReferencesJDBCQuery;
 import org.apache.activemq.artemis.spi.core.protocol.MessagePersister;
 
 public class DescribeNewDatabase {
@@ -51,8 +51,6 @@ public class DescribeNewDatabase {
          printSection(out, "B R O K E R   D A T A", () -> printGenericData(databaseProvider, connection, out, false));
 
          printSection(out, "M E S S A G E S", () -> printMessages(databaseProvider, connection, out, safe));
-
-         printSection(out, "R E F E R E N C E S", () -> printReferences(databaseProvider, connection, out));
 
          printSection(out, "P A G E S", () -> printPages(databaseProvider, connection, out, safe));
 
@@ -123,26 +121,35 @@ public class DescribeNewDatabase {
    }
 
    private static void printMessages(DatabaseProvider databaseProvider, Connection connection, PrintStream out, boolean safe) throws Exception {
-      int[] columnSizes = {10, 10, 120};
+      int[] columnSizes = {10, 10, 10, 15, 120};
       TableOut tableOut = new TableOut("|", 2, columnSizes);
       tableOut.printTopSeparator(out);
-      tableOut.print(out, new String[]{"ID", "TX", safe ? "Size" : "Message"});
+      @SuppressWarnings("unchecked")
+      java.util.List<String>[] header = new java.util.List[columnSizes.length];
+      header[0] = java.util.List.of("ID");
+      header[1] = java.util.List.of("TX");
+      header[2] = java.util.List.of("Memory", "Estimate");
+      header[3] = java.util.List.of("Queues", "* = Pending");
+      header[4] = java.util.List.of(safe ? "Size" : "Message");
+      tableOut.print(out, header);
       tableOut.printSeparator(out);
 
       AtomicInteger count = new AtomicInteger();
-      MessagesJDBCQuery query = new MessagesJDBCQuery(databaseProvider, connection);
+      MessagesAndReferencesDBQuery query = new MessagesAndReferencesDBQuery(databaseProvider, connection);
       query.query(data -> {
          String txStr = data.tx != null ? String.valueOf(data.tx) : "";
+         String memEstStr = String.valueOf(data.memoryEstimate);
+         String queuesStr = formatQueues(data);
          if (safe) {
             int size = data.messageBufferSupplier != null ? data.messageBufferSupplier.get().readableBytes() : 0;
-            tableOut.print(out, new String[]{String.valueOf(data.messageID), txStr, size + " bytes"});
+            tableOut.print(out, new String[]{String.valueOf(data.messageID), txStr, memEstStr, queuesStr, size + " bytes"});
          } else {
             try {
                Message message = MessagePersister.getInstance().decode(data.messageBufferSupplier.get(), null, null);
                message.setMessageID(data.messageID);
-               tableOut.print(out, new String[]{String.valueOf(data.messageID), txStr, String.valueOf(message)});
+               tableOut.print(out, new String[]{String.valueOf(data.messageID), txStr, memEstStr, queuesStr, String.valueOf(message)});
             } catch (Exception e) {
-               tableOut.print(out, new String[]{String.valueOf(data.messageID), txStr, "ERROR decoding: " + e.getMessage()});
+               tableOut.print(out, new String[]{String.valueOf(data.messageID), txStr, memEstStr, queuesStr, "ERROR decoding: " + e.getMessage()});
             }
          }
          count.incrementAndGet();
@@ -152,22 +159,18 @@ public class DescribeNewDatabase {
       out.println();
    }
 
-   private static void printReferences(DatabaseProvider databaseProvider, Connection connection, PrintStream out) throws Exception {
-      int[] columnSizes = {10, 10};
-      TableOut tableOut = new TableOut("|", 2, columnSizes);
-      tableOut.printTopSeparator(out);
-      tableOut.print(out, new String[]{"Msg ID", "Queue"});
-      tableOut.printSeparator(out);
-
-      AtomicInteger count = new AtomicInteger();
-      ReferencesJDBCQuery query = new ReferencesJDBCQuery(databaseProvider, connection);
-      query.query(data -> {
-         tableOut.print(out, new String[]{String.valueOf(data.messageID), String.valueOf(data.queueID)});
-         count.incrementAndGet();
-      });
-      tableOut.printBottomSeparator(out);
-      out.println("Total references: " + count.get());
-      out.println();
+   private static String formatQueues(MessageDataReferenceMerged data) {
+      if (data.queues.isEmpty()) {
+         return "";
+      }
+      StringBuilder sb = new StringBuilder();
+      for (MessageDataReferenceMerged.QueueRef ref : data.queues) {
+         if (sb.length() > 0) {
+            sb.append(", ");
+         }
+         sb.append(ref.toString());
+      }
+      return sb.toString();
    }
 
    private static void printPages(DatabaseProvider databaseProvider, Connection connection, PrintStream out, boolean safe) throws Exception {

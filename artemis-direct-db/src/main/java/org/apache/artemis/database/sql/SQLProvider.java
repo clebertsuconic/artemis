@@ -70,7 +70,7 @@ public abstract class SQLProvider {
    public abstract String createGenericData(String tableName);
 
    public String insertMessages(String tableName) {
-      return String.format("INSERT INTO %s (MESSAGE_ID, MESSAGE_RECORD, TX_ID) VALUES (?,?,?)", tableName);
+      return String.format("INSERT INTO %s (MESSAGE_ID, MESSAGE_RECORD, TX_ID, MEMORY_ESTIMATE) VALUES (?,?,?,?)", tableName);
    }
 
    public String insertReferences(String tableName) {
@@ -126,16 +126,16 @@ public abstract class SQLProvider {
    }
 
    public String reloadMessages(String messagesTable, String referencesTable) {
-      return String.format("SELECT a.MESSAGE_ID, a.MESSAGE_RECORD FROM %s a WHERE EXISTS (SELECT 1 FROM %s b WHERE b.MESSAGE_ID = a.MESSAGE_ID AND b.PENDING_DELIVERY='N') ORDER BY a.MESSAGE_ID", messagesTable, referencesTable);
+      return String.format("SELECT a.MESSAGE_ID, a.MESSAGE_RECORD, a.MEMORY_ESTIMATE FROM %s a WHERE EXISTS (SELECT 1 FROM %s b WHERE b.MESSAGE_ID = a.MESSAGE_ID AND b.PENDING_DELIVERY='N') ORDER BY a.MESSAGE_ID", messagesTable, referencesTable);
    }
 
    // returning only the messages that have at least one PENDING_DELIVERY = "N"
    public String orphanedMessages(String messagesTable, String referencesTable) {
-      return String.format("SELECT a.MESSAGE_ID, a.MESSAGE_RECORD FROM %s a WHERE a.MESSAGE_ID NOT IN (SELECT b.MESSAGE_ID FROM %s b WHERE a.MESSAGE_ID = b.MESSAGE_ID) ORDER BY MESSAGE_ID", messagesTable, referencesTable);
+      return String.format("SELECT a.MESSAGE_ID, a.MESSAGE_RECORD, a.MEMORY_ESTIMATE FROM %s a WHERE a.MESSAGE_ID NOT IN (SELECT b.MESSAGE_ID FROM %s b WHERE a.MESSAGE_ID = b.MESSAGE_ID) ORDER BY MESSAGE_ID", messagesTable, referencesTable);
    }
 
    public String deliverPendingMessages(String messagesTable, String referencesTable) {
-      return String.format("SELECT a.MESSAGE_ID MESSAGE_ID, a.MESSAGE_RECORD MESSAGE_RECORD, b.PENDING_DELIVERY PENDING_DELIVERY FROM %s a, %s b WHERE a.MESSAGE_ID = b.MESSAGE_ID AND b.QUEUE_ID=? AND b.PENDING_DELIVERY='Y' ORDER BY a.MESSAGE_ID", messagesTable, referencesTable);
+      return String.format("SELECT a.MESSAGE_ID MESSAGE_ID, a.MESSAGE_RECORD MESSAGE_RECORD, a.MEMORY_ESTIMATE MEMORY_ESTIMATE, b.PENDING_DELIVERY PENDING_DELIVERY FROM %s a, %s b WHERE a.MESSAGE_ID = b.MESSAGE_ID AND b.QUEUE_ID=? AND b.PENDING_DELIVERY='Y' ORDER BY a.MESSAGE_ID", messagesTable, referencesTable);
    }
 
    public String updatePendingDelivery(String tableName) {
@@ -144,6 +144,10 @@ public abstract class SQLProvider {
 
    public String selectReferences(String tableName) {
       return String.format("SELECT MESSAGE_ID, QUEUE_ID, PENDING_DELIVERY FROM %s WHERE PENDING_DELIVERY='N' ORDER BY MESSAGE_ID, QUEUE_ID", tableName);
+   }
+
+   public String selectMessagesWithReferences(String messagesTable, String referencesTable) {
+      return String.format("SELECT a.MESSAGE_ID, a.TX_ID, a.MEMORY_ESTIMATE, a.MESSAGE_RECORD, b.QUEUE_ID, b.PENDING_DELIVERY FROM %s a LEFT JOIN %s b ON a.MESSAGE_ID = b.MESSAGE_ID ORDER BY a.MESSAGE_ID, b.QUEUE_ID", messagesTable, referencesTable);
    }
 
    public String selectAddress(String tableName) {

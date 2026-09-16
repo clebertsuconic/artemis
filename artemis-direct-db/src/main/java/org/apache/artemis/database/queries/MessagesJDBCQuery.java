@@ -60,7 +60,7 @@ public class MessagesJDBCQuery {
          statement.setFetchSize(500);
          try (ResultSet resultSet = statement.executeQuery(sql)) {
             while (resultSet.next()) {
-               MessageData messageData = QueryUtil.readMessageData(resultSet, 1, 2);
+               MessageData messageData = QueryUtil.readMessageData(resultSet, 1, 2, 3);
                consumer.accept(messageData);
             }
          }

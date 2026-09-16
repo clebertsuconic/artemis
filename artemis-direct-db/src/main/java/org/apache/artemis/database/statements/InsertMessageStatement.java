@@ -53,6 +53,7 @@ public class InsertMessageStatement extends BatchableStatement<MessageData> {
       } else {
          preparedStatement.setNull(3, Types.NUMERIC);
       }
+      preparedStatement.setInt(4, task.memoryEstimate);
    }
 
 }

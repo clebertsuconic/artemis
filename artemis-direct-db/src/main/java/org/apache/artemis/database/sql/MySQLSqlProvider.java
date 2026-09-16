@@ -21,7 +21,7 @@ public class MySQLSqlProvider extends SQLProvider {
 
    @Override
    public String createMessages(String tableName) {
-      return String.format("CREATE TABLE IF NOT EXISTS %s(MESSAGE_ID BIGINT NOT NULL, TX_ID BIGINT, MESSAGE_RECORD LONGBLOB, PRIMARY KEY (MESSAGE_ID))", tableName);
+      return String.format("CREATE TABLE IF NOT EXISTS %s(MESSAGE_ID BIGINT NOT NULL, TX_ID BIGINT, MESSAGE_RECORD LONGBLOB, MEMORY_ESTIMATE INT, PRIMARY KEY (MESSAGE_ID))", tableName);
    }
 
    @Override

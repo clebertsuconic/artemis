@@ -114,7 +114,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
             CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
             message.setMessageID(i);
             message.getBodyBuffer().writeByte((byte) 'Z');
-            MessageData task = databaseStorageManager.getDataManager().newMessageTask(message.getMessageID(), () -> encodeMessage(message), null, latch);
+            MessageData task = databaseStorageManager.getDataManager().newMessageTask(message.getMessageID(), () -> encodeMessage(message), null, message.getMemoryEstimate(), latch);
             insertMessageStatement.addElement(task, latch);
          }
          insertMessageStatement.flushPending(true);
@@ -273,7 +273,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
       java.util.concurrent.atomic.AtomicInteger count = new java.util.concurrent.atomic.AtomicInteger();
       ResultSet resultSet = pendingDeliveryLoad.execute(queueID);
       while (resultSet.next()) {
-         MessageData messageData = QueryUtil.readMessageData(resultSet, 1, 2);
+         MessageData messageData = QueryUtil.readMessageData(resultSet, 1, 2, 3);
          pendingDeliveryLoad.updateDelivery(queueID, messageData.messageID);
          count.incrementAndGet();
       }
@@ -422,7 +422,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
             message.setMessageID(1); // everything should fail with a DuplicateException
             message.getBodyBuffer().writeByte((byte) 'Z');
 
-            insertMessageStatement.addElement(databaseStorageManager.getDataManager().newMessageTask(message.getMessageID(), () -> encodeMessage(message), null, ioCallback), ioCallback);
+            insertMessageStatement.addElement(databaseStorageManager.getDataManager().newMessageTask(message.getMessageID(), () -> encodeMessage(message), null, message.getMemoryEstimate(), ioCallback), ioCallback);
          }
          assertThrows(SQLException.class, () -> insertMessageStatement.flushPending(true));
 

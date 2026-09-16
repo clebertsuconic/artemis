@@ -289,7 +289,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public void storeMessage(Message message) throws Exception {
-      dataManager.storeMessage(message.getMessageID(), () -> encodeMessage(message), null, getContext());
+      dataManager.storeMessage(message.getMessageID(), () -> encodeMessage(message), null, message.getMemoryEstimate(), getContext());
    }
 
    private static ActiveMQBuffer encodeMessage(Message message) {
@@ -346,7 +346,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public void storeMessageTransactional(Transaction tx, Message message) throws Exception {
-      dataManager.storeMessage(tx.getStorageTx(), message.getMessageID(), () -> encodeMessage(message), tx.getID(), getContext());
+      dataManager.storeMessage(tx.getStorageTx(), message.getMessageID(), () -> encodeMessage(message), tx.getID(), message.getMemoryEstimate(), getContext());
    }
 
    @Override

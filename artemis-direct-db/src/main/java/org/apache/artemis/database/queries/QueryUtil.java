@@ -26,10 +26,11 @@ import org.apache.artemis.database.data.MessageData;
 
 public class QueryUtil {
 
-   public static MessageData readMessageData(ResultSet resultSet, int idColumn, int bytesColumn) throws SQLException {
+   public static MessageData readMessageData(ResultSet resultSet, int idColumn, int bytesColumn, int memoryEstimateColumn) throws SQLException {
       long messageID = resultSet.getLong(idColumn);
       byte[] bytes = resultSet.getBytes(bytesColumn);
       ActiveMQBuffer buffer = ActiveMQBuffers.wrappedBuffer(bytes);
-      return new MessageData(messageID, () -> buffer, null);
+      int memoryEstimate = resultSet.getInt(memoryEstimateColumn);
+      return new MessageData(messageID, () -> buffer, null, memoryEstimate);
    }
 }

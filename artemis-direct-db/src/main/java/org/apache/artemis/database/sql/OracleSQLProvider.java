@@ -21,7 +21,7 @@ public class OracleSQLProvider extends SQLProvider {
 
    @Override
    public String createMessages(String tableName) {
-      return String.format("CREATE TABLE %s(MESSAGE_ID NUMBER(19), TX_ID NUMBER(19), MESSAGE_RECORD BLOB, PRIMARY KEY (MESSAGE_ID))", tableName);
+      return String.format("CREATE TABLE %s(MESSAGE_ID NUMBER(19), TX_ID NUMBER(19), MESSAGE_RECORD BLOB, MEMORY_ESTIMATE NUMBER(10), PRIMARY KEY (MESSAGE_ID))", tableName);
    }
 
    @Override

@@ -563,7 +563,7 @@ public class ServerIntegrationTest extends AbstractStatementTest {
       try {
          try (ResultSet resultSet = worker.pendingDeliveryQueryForUpdate.execute(queueID)) {
             while (resultSet.next()) {
-               MessageData messageData = QueryUtil.readMessageData(resultSet, 1, 2);
+               MessageData messageData = QueryUtil.readMessageData(resultSet, 1, 2, 3);
                logger.info("Data:: {}", messageData);
                totalMessages.incrementAndGet();
             }

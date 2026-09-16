@@ -87,8 +87,9 @@ public class DataManager extends ActiveMQScheduledComponent {
    public MessageData newMessageTask(long messageID,
                                      Supplier<ActiveMQBuffer> messageBufferSupplier,
                                      Long txID,
+                                     int memoryEstimate,
                                      IOCompletion context) {
-      return new MessageData(messageID, messageBufferSupplier, txID, context);
+      return new MessageData(messageID, messageBufferSupplier, txID, memoryEstimate, context);
    }
 
    public DataManager(ScheduledExecutorService scheduledExecutorService,
@@ -180,15 +181,17 @@ public class DataManager extends ActiveMQScheduledComponent {
                             long messageID,
                             Supplier<ActiveMQBuffer> messageBufferSupplier,
                             Long tx,
+                            int memoryEstimate,
                             IOCompletion callback) {
-      castTX(storageTX).addData(new MessageData(messageID, messageBufferSupplier, tx, callback));
+      castTX(storageTX).addData(new MessageData(messageID, messageBufferSupplier, tx, memoryEstimate, callback));
    }
 
    public void storeMessage(long messageID,
                             Supplier<ActiveMQBuffer> messageBufferSupplier,
                             Long tx,
+                            int memoryEstimate,
                             IOCompletion callback) {
-      flushData(new MessageData(messageID, messageBufferSupplier, tx, callback));
+      flushData(new MessageData(messageID, messageBufferSupplier, tx, memoryEstimate, callback));
    }
 
    public void deleteMessage(long messageID, IOCompletion callback) {
