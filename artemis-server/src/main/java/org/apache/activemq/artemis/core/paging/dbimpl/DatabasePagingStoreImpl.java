@@ -33,6 +33,7 @@ import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.replication.ReplicationManager;
 import org.apache.activemq.artemis.core.server.RouteContextList;
 import org.apache.activemq.artemis.core.server.StorageMessageReader;
+import org.apache.activemq.artemis.core.server.impl.DatabaseStorageMessageReader;
 import org.apache.activemq.artemis.core.server.impl.QueueImpl;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.settings.impl.PageFullMessagePolicy;
@@ -236,7 +237,7 @@ public class DatabasePagingStoreImpl extends AddressSizeLimiter implements Pagin
 
    @Override
    public StorageMessageReader createStorageMessageReader(QueueImpl queue) {
-      return null;
+      return new DatabaseStorageMessageReader(queue);
    }
 
    @Override

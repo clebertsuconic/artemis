@@ -16,9 +16,15 @@
  */
 package org.apache.activemq.artemis.core.server.impl;
 
+import java.lang.invoke.MethodHandles;
+
 import org.apache.activemq.artemis.core.server.StorageMessageReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DatabaseStorageMessageReader implements StorageMessageReader {
+
+   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    final QueueImpl queue;
 
@@ -28,10 +34,12 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
 
    @Override
    public void scheduleRead(boolean scheduleExpiry) {
+      logger.info("Scheduling read...", new Exception());
    }
 
    @Override
    public void checkRead() {
+      new Exception("checkRead").printStackTrace();
    }
 
    @Override
