@@ -524,9 +524,9 @@ public class ServerIntegrationTest extends AbstractStatementTest {
          }
       }
 
-      /*server.stop();
+      server.stop();
       validateNewDBTotalMessages(storageConfiguration.getDatabaseProvider(), nMessages, nMessages);
-      server.start(); */
+      server.start();
       validateNewDBTotalMessages(storageConfiguration.getDatabaseProvider(), nMessages, nMessages);
 
       DatabaseStorageManager databaseStorageManager = (DatabaseStorageManager) server.getStorageManager();

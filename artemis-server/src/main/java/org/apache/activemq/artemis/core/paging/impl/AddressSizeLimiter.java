@@ -83,7 +83,7 @@ public abstract class AddressSizeLimiter {
 
    private long rejectThreshold;
 
-   private final StorageManager storageManager;
+   protected final StorageManager storageManager;
 
    private final ArtemisExecutor executor;
 
@@ -120,7 +120,6 @@ public abstract class AddressSizeLimiter {
    }
 
    private void overSized() {
-      new Exception("It's full").printStackTrace();
       full = true;
    }
 
@@ -318,8 +317,6 @@ public abstract class AddressSizeLimiter {
          readUnlock();
       }
 
-      new Exception("Trace paging").printStackTrace(System.out);
-
       // We need to guarantee a readLock on the storageManager before starting paging. This is because the replication
       // manager will get a list of files to synchronize while holding a writeLock on the storageManager. So we must
       // guarantee a readLock here otherwise the list might be wrong.
@@ -352,16 +349,10 @@ public abstract class AddressSizeLimiter {
    public long addSize(final int size, boolean sizeOnly, boolean affectGlobal) {
       long newSize = this.size.addSize(size, sizeOnly, affectGlobal);
 
-      logger.info("AddSize {}, newSize = {}", size, newSize);
-
       boolean globalFull = pagingManager.isGlobalFull();
 
       if (newSize < 0) {
          ActiveMQServerLogger.LOGGER.negativeAddressSize(address.toString(), newSize);
-      }
-
-      if (isFull()) {
-         new Exception("It's full").printStackTrace();
       }
 
       if (addressFullMessagePolicy == AddressFullMessagePolicy.BLOCK || addressFullMessagePolicy == AddressFullMessagePolicy.FAIL) {

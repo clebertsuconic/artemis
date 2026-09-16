@@ -80,8 +80,6 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
 
    private final SimpleString address;
 
-   private final StorageManager storageManager;
-
    private final DecimalFormat format = new DecimalFormat("000000000");
 
    private final PageCache usedPages = new PageCache(this);
@@ -158,8 +156,6 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
       Objects.requireNonNull(pagingManager, "Paging Manager can't be null");
 
       this.address = address;
-
-      this.storageManager = storageManager;
 
       this.storeName = storeName;
 
