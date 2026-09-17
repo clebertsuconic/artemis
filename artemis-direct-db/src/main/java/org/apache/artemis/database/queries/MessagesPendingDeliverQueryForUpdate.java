@@ -51,13 +51,13 @@ public class MessagesPendingDeliverQueryForUpdate {
       updateDeliveryStatement = connection.prepareStatement(updateSql);
    }
 
-   public void updateDelivery(long queueID, long messageID) throws Exception {
+   public void updateDelivery(long queueID, long messageID) throws SQLException {
       updateDeliveryStatement.setLong(1, queueID);
       updateDeliveryStatement.setLong(2, messageID);
       updateDeliveryStatement.addBatch();
    }
 
-   public void flush() throws Exception {
+   public void flush() throws SQLException {
       updateDeliveryStatement.executeBatch();
    }
 
@@ -67,7 +67,7 @@ public class MessagesPendingDeliverQueryForUpdate {
       updateDeliveryStatement.close();
    }
 
-   public ResultSet execute(long queueID) throws Exception {
+   public ResultSet execute(long queueID) throws SQLException {
       deliveryPreparedStatement.setLong(1, queueID);
       return deliveryPreparedStatement.executeQuery();
    }

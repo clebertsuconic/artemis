@@ -254,7 +254,7 @@ public class HangConsumerTest extends ActiveMQTestBase {
 
          @Override
          public Queue createQueueWith(final QueueConfiguration config, PagingManager pagingManager, Filter filter) {
-            PageSubscription pageSubscription = getPageSubscription(config, pagingManager, filter);
+            PageSubscription pageSubscription = getPageSubscription(config, getPagingStore(pagingManager, config.getAddress()), filter);
             queue = new MyQueueWithBlocking(config, filter, pageSubscription != null ? pageSubscription.getPagingStore() : null, pageSubscription, scheduledExecutor,
                                             postOffice, storageManager, addressSettingsRepository,
                                             executorFactory.getExecutor(), server);

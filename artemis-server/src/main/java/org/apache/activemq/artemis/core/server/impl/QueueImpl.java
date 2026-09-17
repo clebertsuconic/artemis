@@ -3096,10 +3096,10 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
     * This is a check on page sizing.
     */
    boolean needsDepage() {
-      final int maxReadMessages = pageSubscription.getPagingStore().getMaxPageReadMessages();
-      final int maxReadBytes = pageSubscription.getPagingStore().getMaxPageReadBytes();
-      final int prefetchMessages = pageSubscription.getPagingStore().getPrefetchPageMessages();
-      final int prefetchBytes = pageSubscription.getPagingStore().getPrefetchPageBytes();
+      final int maxReadMessages = pagingStore.getMaxPageReadMessages();
+      final int maxReadBytes = pagingStore.getMaxPageReadBytes();
+      final int prefetchMessages = pagingStore.getPrefetchPageMessages();
+      final int prefetchBytes = pagingStore.getPrefetchPageBytes();
 
       if (maxReadMessages <= 0 && maxReadBytes <= 0 && prefetchMessages <= 0 && prefetchBytes <= 0) {
          // if all values are disabled, we will protect the broker using an older semantic
