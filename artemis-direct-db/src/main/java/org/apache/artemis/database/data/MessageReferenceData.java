@@ -23,14 +23,14 @@ import org.apache.artemis.database.worker.DataWorker;
 public class MessageReferenceData extends DBData {
    public long messageID;
    public long queueID;
-   public boolean pendingDelivery;
+   public boolean paged;
    public Long txID;
 
-   public MessageReferenceData(long messageID, long queueID, boolean pendingDelivery, Long txID, IOCompletion context) {
+   public MessageReferenceData(long messageID, long queueID, boolean paged, Long txID, IOCompletion context) {
       super(context);
       this.messageID = messageID;
       this.queueID = queueID;
-      this.pendingDelivery = pendingDelivery;
+      this.paged = paged;
       this.txID = txID;
    }
 
@@ -41,6 +41,6 @@ public class MessageReferenceData extends DBData {
 
    @Override
    public String toString() {
-      return "MessageReferenceData{" + "messageID=" + messageID + ", queueID=" + queueID + ", pendingDelivery=" + pendingDelivery + ", txID=" + txID + '}';
+      return "MessageReferenceData{" + "messageID=" + messageID + ", queueID=" + queueID + ", paged=" + paged + ", txID=" + txID + '}';
    }
 }

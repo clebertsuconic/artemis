@@ -3095,7 +3095,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
    /**
     * This is a check on page sizing.
     */
-   boolean needsDepage() {
+   public boolean needsDepage() {
       final int maxReadMessages = pagingStore.getMaxPageReadMessages();
       final int maxReadBytes = pagingStore.getMaxPageReadBytes();
       final int prefetchMessages = pagingStore.getPrefetchPageMessages();

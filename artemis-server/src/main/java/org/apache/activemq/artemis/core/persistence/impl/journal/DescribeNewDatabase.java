@@ -129,7 +129,7 @@ public class DescribeNewDatabase {
       header[0] = java.util.List.of("ID");
       header[1] = java.util.List.of("TX");
       header[2] = java.util.List.of("Memory", "Estimate");
-      header[3] = java.util.List.of("Queues", "* = Pending");
+      header[3] = java.util.List.of("Queues", "* = Paged");
       header[4] = java.util.List.of(safe ? "Size" : "Message");
       tableOut.print(out, header);
       tableOut.printSeparator(out);

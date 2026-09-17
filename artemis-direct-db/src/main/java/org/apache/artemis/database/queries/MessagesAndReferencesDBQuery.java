@@ -76,9 +76,9 @@ public class MessagesAndReferencesDBQuery {
                byte[] bytes     = rs.getBytes(4);
 
                // nullable — LEFT JOIN produces NULL when there are no refs
-               long queueIDRaw     = rs.getLong(5);
-               boolean hasRef      = !rs.wasNull();
-               boolean pending     = hasRef && "Y".equals(rs.getString(6));
+               long queueIDRaw = rs.getLong(5);
+               boolean hasRef  = !rs.wasNull();
+               boolean paged   = hasRef && "Y".equals(rs.getString(6));
 
                if (messageID != currentID) {
                   // flush the previous message if there is one
@@ -94,7 +94,7 @@ public class MessagesAndReferencesDBQuery {
                }
 
                if (hasRef) {
-                  currentQueues.add(new QueueRef(queueIDRaw, pending));
+                  currentQueues.add(new QueueRef(queueIDRaw, paged));
                }
             }
 

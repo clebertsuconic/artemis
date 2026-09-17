@@ -22,6 +22,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.function.Supplier;
 
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.core.paging.PagingStore;
@@ -30,6 +31,7 @@ import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.core.server.StorageMessageReader;
 import org.apache.artemis.database.data.MessageData;
 import org.apache.artemis.database.queries.QueryUtil;
+import org.apache.artemis.database.worker.DataManager;
 import org.apache.artemis.database.worker.DataWorker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,30 +42,38 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
 
    final QueueImpl queue;
 
-   final PagingStore pagingStore;
+   Supplier<Integer> prefetchBytes;
 
-   final DatabaseStorageManager databaseStorageManager;
+   Supplier<Integer> prefetchMessages;
+
+   volatile boolean scheduled;
+
+   final DataManager dataManager;
 
    public DatabaseStorageMessageReader(QueueImpl queue, DatabaseStorageManager databaseStorageManager, PagingStore pagingStore) {
+      this(queue, databaseStorageManager.getDataManager(), pagingStore::getPrefetchPageMessages, pagingStore::getPrefetchPageBytes);
+   }
+
+   public DatabaseStorageMessageReader(QueueImpl queue, DataManager dataManager, Supplier<Integer> prefetchMessages, Supplier<Integer> prefetchBytes) {
       this.queue = queue;
-      this.databaseStorageManager = databaseStorageManager;
-      this.pagingStore = pagingStore;
+      this.dataManager = dataManager;
+      this.prefetchMessages = prefetchMessages;
+      this.prefetchBytes = prefetchBytes;
    }
 
    @Override
    public void scheduleRead(boolean scheduleExpiry) {
-      logger.info("Scheduling read...", new Exception());
       List<Message> receivedMessages = new ArrayList<>();
-      databaseStorageManager.getDataManager().executeQuery(queue.getExecutor(), w -> this.executePrefetch(w, receivedMessages), () -> deliverMessages(receivedMessages));
+      dataManager.executeQuery(queue.getExecutor(), w -> this.executePrefetch(w, receivedMessages), () -> deliverMessages(receivedMessages));
    }
 
    private void executePrefetch(DataWorker worker, List<Message> messageList) throws SQLException {
       try (ResultSet resultSet = worker.pendingDeliveryQueryForUpdate.execute(queue.getID())) {
-         final int prefetchBytes = pagingStore.getPrefetchPageBytes();
-         int prefetchMessages = pagingStore.getPrefetchPageMessages();
+         int prefetchBytesValue = prefetchBytes.get();
+         int prefetchMessagesValue = prefetchMessages.get();
 
-         if (prefetchMessages <= 0 && prefetchMessages <= 0) {
-            prefetchMessages = 1000;
+         if (prefetchMessagesValue <= 0 && prefetchBytesValue <= 0) {
+            prefetchBytesValue = 1000;
          }
 
          int messagesRead = 0;
@@ -73,13 +83,15 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
             messagesRead++;
             bytesRead += messageData.memoryEstimate;
 
-            if (prefetchMessages > 0 && messagesRead >= prefetchMessages ||
-                prefetchBytes > 0 && bytesRead >= bytesRead) {
-                  break;
-            }
-            messageList.add(DatabaseStorageManager.decodeMessage(messageData));
+            Message message = DatabaseStorageManager.decodeMessage(messageData);
+            logger.info("Prefetching message {}", message);
+            messageList.add(message);
 
             worker.pendingDeliveryQueryForUpdate.updateDelivery(queue.getID(), messageData.messageID);
+            if (prefetchMessagesValue > 0 && messagesRead > prefetchMessagesValue ||
+               prefetchBytesValue >= 0 && bytesRead >= prefetchBytesValue) {
+               break;
+            }
          }
          worker.pendingDeliveryQueryForUpdate.flush();
       }
@@ -88,16 +100,25 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
    private void deliverMessages(List<Message> messageList) {
       for (Message m : messageList) {
          MessageReference reference = new MessageReferenceImpl(m, queue);
+         queue.refUp(reference);
          queue.addSorted(reference, false);
       }
       queue.deliverAsync();
+      // this call is always performed from a single thread call. no need to synchronized here
+      scheduled = false;
    }
 
    @Override
    public void checkRead() {
-      new Exception("checkRead").printStackTrace();
-      if (queue.needsDepage()) {
-         scheduleRead(false);
+      if (queue.isPaused()) {
+         return;
+      }
+      boolean needsDepage = queue.needsDepage();
+      synchronized (this) {
+         if (!scheduled && !queue.isPaused() && needsDepage) {
+            scheduled = true;
+            scheduleRead(false);
+         }
       }
    }
 

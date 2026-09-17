@@ -48,8 +48,8 @@ public class ReferencesJDBCQuery {
          while (resultSet.next()) {
             long messageID = resultSet.getLong(1);
             long queueID = resultSet.getLong(2);
-            boolean pendingDelivery = "Y".equals(resultSet.getString(3));
-            MessageReferenceData referenceData = new MessageReferenceData(messageID, queueID, pendingDelivery, null, null);
+            boolean paged = "Y".equals(resultSet.getString(3));
+            MessageReferenceData referenceData = new MessageReferenceData(messageID, queueID, paged, null, null);
             consumer.accept(referenceData);
          }
       }

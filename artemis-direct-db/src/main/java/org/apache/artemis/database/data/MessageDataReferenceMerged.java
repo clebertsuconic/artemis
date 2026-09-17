@@ -35,16 +35,16 @@ public class MessageDataReferenceMerged {
    /** Per-queue entry held inside a merged message row. */
    public static class QueueRef {
       public final long queueID;
-      public final boolean pendingDelivery;
+      public final boolean paged;
 
-      public QueueRef(long queueID, boolean pendingDelivery) {
+      public QueueRef(long queueID, boolean paged) {
          this.queueID = queueID;
-         this.pendingDelivery = pendingDelivery;
+         this.paged = paged;
       }
 
       @Override
       public String toString() {
-         return pendingDelivery ? queueID + "*" : String.valueOf(queueID);
+         return paged ? queueID + "*" : String.valueOf(queueID);
       }
    }
 

@@ -48,7 +48,7 @@ public class InsertReferencesStatement extends BatchableStatement<MessageReferen
    protected void doOne(MessageReferenceData task) throws Exception {
       preparedStatement.setLong(1, task.messageID);
       preparedStatement.setLong(2, task.queueID);
-      preparedStatement.setString(3, task.pendingDelivery ? "Y" : "N");
+      preparedStatement.setString(3, task.paged ? "Y" : "N");
       if (task.txID != null) {
          preparedStatement.setLong(4, task.txID);
       } else {

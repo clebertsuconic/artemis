@@ -43,8 +43,12 @@ import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorag
 import org.apache.activemq.artemis.core.persistence.impl.journal.BatchingIDGenerator;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalRecordIds;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
+import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.impl.AddressInfo;
+import org.apache.activemq.artemis.core.server.impl.DatabaseStorageMessageReader;
+import org.apache.activemq.artemis.core.server.impl.MessageReferenceImpl;
+import org.apache.activemq.artemis.core.server.impl.QueueImpl;
 import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.logs.AssertionLoggerHandler;
@@ -54,6 +58,7 @@ import org.apache.activemq.artemis.tests.util.CFUtil;
 import org.apache.activemq.artemis.utils.RandomUtil;
 import org.apache.activemq.artemis.utils.ReusableLatch;
 import org.apache.activemq.artemis.utils.Wait;
+import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
 import org.apache.artemis.database.DatabaseProvider;
 import org.apache.artemis.database.data.MessageData;
 import org.apache.artemis.database.queries.GenericDataJDBCQuery;
@@ -64,6 +69,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledIf;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -497,16 +503,23 @@ public class ServerIntegrationTest extends AbstractStatementTest {
    }
 
 
+   // This is using the DatabaseStorageMessageReader directly to validate the depage process
    @TestTemplate
-   public void testPaging() throws Exception {
+   public void testPagingDepageDirectly() throws Exception {
       int nMessages = 100;
 
       ActiveMQServer server = createServer(true, configuration);
       server.getConfiguration().getAddressSettings().clear();
       AddressSettings settingPaging = new AddressSettings().setAddressFullMessagePolicy(AddressFullMessagePolicy.PAGE).setMaxSizeMessages(nMessages / 2);
       server.getConfiguration().addAddressSetting("#", settingPaging);
+      server.getConfiguration().addAddressConfiguration(new CoreAddressConfiguration()
+         .setName(QUEUE_NAME)
+         .addRoutingType(RoutingType.ANYCAST)
+         .addQueueConfiguration(QueueConfiguration.of(QUEUE_NAME).setRoutingType(RoutingType.ANYCAST)));
       server.start();
 
+      Queue queue = server.locateQueue(QUEUE_NAME);
+      queue.pause();
 
       ConnectionFactory factory = CFUtil.createConnectionFactory("CORE", "tcp://localhost:61616");
       try (javax.jms.Connection connection = factory.createConnection()) {
@@ -534,7 +547,7 @@ public class ServerIntegrationTest extends AbstractStatementTest {
       ExecutorService service = Executors.newSingleThreadExecutor();
       runAfter(service::shutdownNow);
 
-      Queue queue = server.locateQueue(QUEUE_NAME);
+
 
       CountDownLatch done = new CountDownLatch(1);
       AtomicInteger errors = new AtomicInteger(0);
@@ -545,17 +558,56 @@ public class ServerIntegrationTest extends AbstractStatementTest {
       assertEquals(0, errors.get());
       assertEquals(50, totalMessages.get());
 
-      try (javax.jms.Connection connection = factory.createConnection()) {
-         connection.start();
-         try (Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
-            MessageConsumer consumer = session.createConsumer(session.createQueue(QUEUE_NAME));
-            for (int i = 0; i < nMessages; i++) {
-               assertNotNull(consumer.receive(5000));
-            }
+      QueueImpl mockQueue = Mockito.mock(QueueImpl.class);
+      Mockito.when(mockQueue.getID()).thenReturn(queueID);
+      Mockito.doReturn(true).when(mockQueue).needsDepage();
+      Mockito.when(mockQueue.getExecutor()).thenReturn(ArtemisExecutor.delegate(service));
+
+
+      ReusableLatch latch = new ReusableLatch(1);
+      Mockito.doAnswer(invocation -> {
+         latch.countDown();
+         return null;
+      }).when(mockQueue).deliverAsync();
+
+      ArrayList<MessageReferenceImpl> references = new ArrayList<>();
+
+
+      Mockito.doAnswer(invocation -> {
+         MessageReference ref = invocation.getArgument(0);
+         ref.getMessage().refUp();
+         return null;
+      }).when(mockQueue).refUp(Mockito.any(MessageReference.class));
+
+      Mockito.doAnswer(invocation -> {
+         references.add(invocation.getArgument(0));
+         return null;
+      }).when(mockQueue).addSorted(Mockito.any(MessageReference.class), Mockito.anyBoolean());
+
+      AtomicInteger prefetch = new AtomicInteger(10);
+
+      DatabaseStorageMessageReader storageMessageReader = new DatabaseStorageMessageReader(mockQueue, databaseStorageManager.getDataManager(), prefetch::get, () -> 1024 * 1024);
+      storageMessageReader.scheduleRead(false);
+
+      assertTrue(latch.await(1, TimeUnit.MINUTES));
+      assertEquals(10, references.size());
+
+      latch.setCount(1);
+      prefetch.set(40); // next prefetch now should return the remaining
+
+      storageMessageReader.scheduleRead(false);
+
+      assertTrue(latch.await(1, TimeUnit.MINUTES));
+      assertEquals(50, references.size());
+
+      try (AssertionLoggerHandler loggerHandler = new AssertionLoggerHandler()) {
+         for (MessageReferenceImpl ref : references) {
+            // simulating the ack
+            ref.getMessage().refDown();
          }
+
+         assertFalse(loggerHandler.findText("AMQ214034"));
       }
-
-
    }
 
 

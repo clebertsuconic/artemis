@@ -19,6 +19,7 @@ package org.apache.activemq.artemis.core.paging.dbimpl;
 import java.io.File;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.function.Function;
 
 import org.apache.activemq.artemis.api.core.Message;
@@ -46,6 +47,23 @@ import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
  * Creates {@link DatabasePage} instances for page storage.
  */
 public class DatabasePagingStoreImpl extends AddressSizeLimiter implements PagingStore {
+
+   private static final AtomicIntegerFieldUpdater<DatabasePagingStoreImpl> PAGED_REFERENCES_UPDATER =
+      AtomicIntegerFieldUpdater.newUpdater(DatabasePagingStoreImpl.class, "pagedReferences");
+
+   private volatile int pagedReferences;
+
+   public int getPagedReferences() {
+      return pagedReferences;
+   }
+
+   public int addPagedReferences(int delta) {
+      return PAGED_REFERENCES_UPDATER.addAndGet(this, delta);
+   }
+
+   public int incrementPagedReferences() {
+      return PAGED_REFERENCES_UPDATER.incrementAndGet(this);
+   }
 
    public DatabasePagingStoreImpl(StorageManager storageManager,
                                   PagingManager pagingManager,
