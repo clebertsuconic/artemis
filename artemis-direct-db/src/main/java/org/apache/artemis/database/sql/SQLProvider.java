@@ -187,7 +187,7 @@ public abstract class SQLProvider {
       String referencesTable = getRefs();
       String pagedClause = "";
       if (paged != null) {
-         pagedClause = "AND xref.paged = '" + (paged ? "Y" : "N") + ";";
+         pagedClause = "AND xref.paged = '" + (paged ? "Y" : "N") + "'";
       }
       return String.format(
          "SELECT xref.queue_id queue_id, count(*) msg_count, sum(dm.memory_estimate) mem_estimate " +

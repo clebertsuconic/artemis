@@ -65,6 +65,7 @@ public class DatabasePagingStoreFactory implements PagingStoreFactory {
       this.executorFactory = executorFactory;
       this.syncNonTransactional = syncNonTransactional;
       this.addressInfoProvider = addressInfoProvider;
+      new Exception("Trace").printStackTrace();
    }
 
    @Override

@@ -128,7 +128,9 @@ public class DatabaseStorageManager extends AbstractStorageManager {
    @Override
    public PagingManager createPagingManager(ActiveMQServer server) throws Exception {
       DatabasePagingStoreFactory factory = new DatabasePagingStoreFactory(this, server.getConfiguration().getPageSyncTimeout(), scheduledExecutorService, executorFactory, server.getConfiguration().isJournalSyncNonTransactional(), server::getAddressInfo);
-      return new DatabasePagingManager(factory, server.getAddressSettingsRepository(), server.getConfiguration().getGlobalMaxSize(), server.getConfiguration().getGlobalMaxMessages(), server.getConfiguration().getManagementAddress(), server);
+      DatabasePagingManager pagingManager = new DatabasePagingManager(factory, server.getAddressSettingsRepository(), server.getConfiguration().getGlobalMaxSize(), server.getConfiguration().getGlobalMaxMessages(), server.getConfiguration().getManagementAddress(), server);
+      factory.setPagingManager(pagingManager);
+      return pagingManager;
    }
 
    @Override

@@ -42,14 +42,16 @@ public class CountPagedMessageQuery {
 
    public void query(Boolean paged, Consumer<CountMessageData> consumer) throws Exception {
       String sql = databaseProvider.getSqlProvider().countPagedMessages(paged);
-      Statement statement = connection.createStatement();
-      statement.setFetchSize(500);
-      try (ResultSet resultSet = statement.executeQuery(sql)) {
-         while (resultSet.next()) {
-            long queueId = resultSet.getLong(1);
-            long msgCount = resultSet.getLong(2);
-            long memEstimate = resultSet.getLong(3);
-            consumer.accept(new CountMessageData(queueId, msgCount, memEstimate));
+      try (Statement statement = connection.createStatement()) {
+         statement.setFetchSize(500);
+
+         try (ResultSet resultSet = statement.executeQuery(sql)) {
+            while (resultSet.next()) {
+               long queueId = resultSet.getLong(1);
+               long msgCount = resultSet.getLong(2);
+               long memEstimate = resultSet.getLong(3);
+               consumer.accept(new CountMessageData(queueId, msgCount, memEstimate));
+            }
          }
       }
    }

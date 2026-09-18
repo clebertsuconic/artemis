@@ -99,7 +99,7 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
             messageList.add(message);
 
             worker.pendingDeliveryQueryForUpdate.updateDelivery(queue.getID(), messageData.messageID);
-            if (prefetchMessagesValue > 0 && messagesRead > prefetchMessagesValue ||
+            if (prefetchMessagesValue > 0 && messagesRead >= prefetchMessagesValue ||
                prefetchBytesValue >= 0 && bytesRead >= prefetchBytesValue) {
                break;
             }

@@ -40,11 +40,6 @@ public class DatabasePagingManager extends AbstracPagingManager {
    }
 
    @Override
-   public boolean isUsingGlobalSize() {
-      return maxSize > 0;
-   }
-
-   @Override
    public void start() throws Exception {
       started = true;
    }

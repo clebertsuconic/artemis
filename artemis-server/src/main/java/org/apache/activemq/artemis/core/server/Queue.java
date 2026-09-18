@@ -48,7 +48,9 @@ public interface Queue extends Bindable, CriticalComponent {
 
    Long getID();
 
-   StorageMessageReader getStorageMessageReader();
+   default StorageMessageReader getStorageMessageReader() {
+      return null;
+   }
 
    Filter getFilter();
 
