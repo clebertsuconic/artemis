@@ -77,7 +77,7 @@ public class DatabasePagingStoreFactory implements PagingStoreFactory {
                                                StorageManager storageManager,
                                                AddressSettings addressSettings,
                                                ArtemisExecutor executor) {
-      return new PageCursorProviderImpl(store, storageManager);
+      throw new UnsupportedOperationException();
    }
 
    @Override

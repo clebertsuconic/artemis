@@ -25,7 +25,6 @@ import javax.jms.Topic;
 import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -39,6 +38,7 @@ import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.config.CoreAddressConfiguration;
+import org.apache.activemq.artemis.core.paging.dbimpl.DatabasePagingStoreImpl;
 import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.BatchingIDGenerator;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalRecordIds;
@@ -557,6 +557,8 @@ public class ServerIntegrationTest extends AbstractStatementTest {
       assertTrue(done.await(10, TimeUnit.SECONDS));
       assertEquals(0, errors.get());
       assertEquals(50, totalMessages.get());
+
+      DatabasePagingStoreImpl pagingStore = (DatabasePagingStoreImpl) queue.getPagingStore();
 
       QueueImpl mockQueue = Mockito.mock(QueueImpl.class);
       Mockito.when(mockQueue.getID()).thenReturn(queueID);

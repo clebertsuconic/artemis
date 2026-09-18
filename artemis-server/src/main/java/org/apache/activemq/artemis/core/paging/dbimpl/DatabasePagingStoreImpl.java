@@ -48,23 +48,6 @@ import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
  */
 public class DatabasePagingStoreImpl extends AddressSizeLimiter implements PagingStore {
 
-   private static final AtomicIntegerFieldUpdater<DatabasePagingStoreImpl> PAGED_REFERENCES_UPDATER =
-      AtomicIntegerFieldUpdater.newUpdater(DatabasePagingStoreImpl.class, "pagedReferences");
-
-   private volatile int pagedReferences;
-
-   public int getPagedReferences() {
-      return pagedReferences;
-   }
-
-   public int addPagedReferences(int delta) {
-      return PAGED_REFERENCES_UPDATER.addAndGet(this, delta);
-   }
-
-   public int incrementPagedReferences() {
-      return PAGED_REFERENCES_UPDATER.incrementAndGet(this);
-   }
-
    public DatabasePagingStoreImpl(StorageManager storageManager,
                                   PagingManager pagingManager,
                                   SimpleString address,
