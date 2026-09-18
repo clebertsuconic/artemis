@@ -17,50 +17,51 @@
 package org.apache.activemq.artemis.core.paging.dbimpl;
 
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.paging.PageTransactionInfo;
-import org.apache.activemq.artemis.core.paging.PagingManager;
 import org.apache.activemq.artemis.core.paging.PagingStore;
-import org.apache.activemq.artemis.core.paging.impl.AddressSizeLimiter;
-import org.apache.activemq.artemis.core.paging.impl.PagingManagerImpl;
+import org.apache.activemq.artemis.core.paging.PagingStoreFactory;
+import org.apache.activemq.artemis.core.paging.impl.AbstracPagingManager;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.files.FileStoreMonitor;
 import org.apache.activemq.artemis.core.settings.HierarchicalRepository;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 
-public class DatabasePagingManager implements PagingManager {
+public class DatabasePagingManager extends AbstracPagingManager {
 
-
+   public DatabasePagingManager(final PagingStoreFactory pagingStoreFactory,
+                                final HierarchicalRepository<AddressSettings> addressSettingsRepository,
+                                final long maxSize,
+                                final long maxMessages,
+                                final SimpleString managementAddress,
+                                final ActiveMQServer server) {
+      super(pagingStoreFactory, addressSettingsRepository, maxSize, maxMessages, managementAddress, server);
+   }
 
    @Override
    public boolean requireRebuildCounters() {
       return false;
    }
 
-   @Override
-   public PagingStore getPageStore(SimpleString address) throws Exception {
-      return null;
-   }
-
+   // TODO: Consider removing from here and interface, and using a specific cast where needed
    @Override
    public void addTransaction(PageTransactionInfo pageTransaction) {
-
    }
 
+   // TODO: Consider removing from here and interface, and using a specific cast where needed
    @Override
    public PageTransactionInfo getTransaction(long transactionID) {
       return null;
    }
 
+   // TODO: Consider removing from here and interface, and using a specific cast where needed
    @Override
    public void removeTransaction(long transactionID) {
-
    }
 
+   // TODO: Consider removing from here and interface, and using a specific cast where needed
    @Override
    public Map<Long, PageTransactionInfo> getTransactions() {
       return Map.of();
@@ -68,111 +69,63 @@ public class DatabasePagingManager implements PagingManager {
 
    @Override
    public void reloadStores() throws Exception {
-
    }
 
-   @Override
-   public SimpleString[] getStoreNames() {
-      return new SimpleString[0];
-   }
-
+   // TODO: Consider removing from here and interface, and using a specific cast where needed
    @Override
    public void deletePageStore(SimpleString storeName) throws Exception {
-
    }
 
+   // TODO: Consider removing from here and interface, and using a specific cast where needed
    @Override
    public void processReload() throws Exception {
-
    }
 
+   // TODO: Consider removing from here and interface, and using a specific cast where needed
    @Override
    public void disableCleanup() {
-
    }
 
+   // TODO: Consider removing from here and interface, and using a specific cast where needed
    @Override
    public void resumeCleanup() {
-
    }
 
-   @Override
-   public void addBlockedStore(AddressSizeLimiter store) {
-
-   }
-
+   // TODO: Consider removing from here and interface, and using a specific cast where needed
    @Override
    public void injectMonitor(FileStoreMonitor monitor) throws Exception {
-
    }
 
-   @Override
-   public void lock() {
-
-   }
-
-   @Override
-   public void unlock() {
-
-   }
-
-   @Override
-   public PagingManager addSize(int size, boolean sizeOnly) {
-      return null;
-   }
-
-   @Override
-   public boolean isUsingGlobalSize() {
-      return false;
-   }
-
-   @Override
-   public boolean isGlobalFull() {
-      return false;
-   }
-
+   // TODO: Consider removing from here and interface, and using a specific cast where needed
    @Override
    public boolean isDiskFull() {
       return false;
    }
 
+   // TODO: Consider removing from here and interface, and using a specific cast where needed
    @Override
    public long getDiskUsableSpace() {
       return 0;
    }
 
+   // TODO: Consider removing from here and interface, and using a specific cast where needed
    @Override
    public long getDiskTotalSpace() {
       return 0;
    }
 
-   @Override
-   public void checkMemory(Runnable runWhenAvailable) {
-
-   }
-
+   // TODO: Consider removing from here and interface, and using a specific cast where needed
    @Override
    public void counterSnapshot() {
-
    }
 
+
+   // TODO: Is there a way to have start / stop moved from PagingManagerImpl into Abstract and be reused? maybe there are specific files things that need to be specialized
    @Override
    public void start() throws Exception {
-
    }
 
    @Override
    public void stop() throws Exception {
-
-   }
-
-   @Override
-   public boolean isStarted() {
-      return false;
-   }
-
-   @Override
-   public void onChange() {
-
    }
 }
