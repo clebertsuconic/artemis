@@ -54,38 +54,70 @@ public interface PagingManager extends ActiveMQComponent, HierarchicalRepository
     */
    PagingStore getPageStore(SimpleString address) throws Exception;
 
-   /**
-    * Point to inform/restoring Transactions used when the messages were added into paging
-    */
-   void addTransaction(PageTransactionInfo pageTransaction);
+  /**
+   * Point to inform/restoring Transactions used when the messages were added into paging.
+   * No-op by default for implementations that do not use journal-based page transactions (e.g. database).
+   */
+  default void addTransaction(PageTransactionInfo pageTransaction) {
+  }
 
-   /**
-    * Point to inform/restoring Transactions used when the messages were added into paging
-    */
-   PageTransactionInfo getTransaction(long transactionID);
+  /**
+   * Point to inform/restoring Transactions used when the messages were added into paging.
+   * Returns {@code null} by default for implementations that do not use journal-based page transactions.
+   */
+  default PageTransactionInfo getTransaction(long transactionID) {
+     return null;
+  }
 
-   void removeTransaction(long transactionID);
+  default void removeTransaction(long transactionID) {
+  }
 
-   Map<Long, PageTransactionInfo> getTransactions();
+  default Map<Long, PageTransactionInfo> getTransactions() {
+     return Map.of();
+  }
 
-   /**
-    * Reload previously created PagingStores into memory
-    */
-   void reloadStores() throws Exception;
+  /**
+   * Reload previously created PagingStores into memory.
+   * No-op by default for implementations that do not use file-based stores.
+   */
+  default void reloadStores() throws Exception {
+  }
 
-   SimpleString[] getStoreNames();
+  default SimpleString[] getStoreNames() {
+     return new SimpleString[0];
+  }
 
-   void deletePageStore(SimpleString storeName) throws Exception;
+  /**
+   * No-op by default for implementations that do not use file-based stores.
+   */
+  default void deletePageStore(SimpleString storeName) throws Exception {
+  }
 
-   void processReload() throws Exception;
+  /**
+   * No-op by default for implementations that do not use file-based stores.
+   */
+  default void processReload() throws Exception {
+  }
 
-   void disableCleanup();
+  /**
+   * No-op by default for implementations that do not use file-based stores.
+   */
+  default void disableCleanup() {
+  }
 
-   void resumeCleanup();
+  /**
+   * No-op by default for implementations that do not use file-based stores.
+   */
+  default void resumeCleanup() {
+  }
 
-   void addBlockedStore(AddressSizeLimiter store);
+  void addBlockedStore(AddressSizeLimiter store);
 
-   void injectMonitor(FileStoreMonitor monitor) throws Exception;
+  /**
+   * No-op by default for implementations that do not use disk-based storage (e.g. database).
+   */
+  default void injectMonitor(FileStoreMonitor monitor) throws Exception {
+  }
 
    /**
     * Execute a runnable inside the PagingManager's executor
@@ -130,11 +162,26 @@ public interface PagingManager extends ActiveMQComponent, HierarchicalRepository
 
    boolean isGlobalFull();
 
-   boolean isDiskFull();
+   /**
+    * Returns {@code false} by default for implementations that do not use disk-based storage (e.g. database).
+    */
+   default boolean isDiskFull() {
+      return false;
+   }
 
-   long getDiskUsableSpace();
+   /**
+    * Returns {@code 0} by default for implementations that do not use disk-based storage (e.g. database).
+    */
+   default long getDiskUsableSpace() {
+      return 0;
+   }
 
-   long getDiskTotalSpace();
+   /**
+    * Returns {@code 0} by default for implementations that do not use disk-based storage (e.g. database).
+    */
+   default long getDiskTotalSpace() {
+      return 0;
+   }
 
    default long getGlobalSize() {
       return 0;
@@ -149,7 +196,11 @@ public interface PagingManager extends ActiveMQComponent, HierarchicalRepository
     */
    void checkMemory(Runnable runWhenAvailable);
 
-   void counterSnapshot();
+   /**
+    * No-op by default for implementations that do not use file-based cursor snapshots.
+    */
+   default void counterSnapshot() {
+   }
 
    /**
     * Use this when you have no refernce of an address. (anonymous AMQP Producers for example)
