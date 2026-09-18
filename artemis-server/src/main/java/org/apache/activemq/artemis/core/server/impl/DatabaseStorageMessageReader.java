@@ -29,6 +29,7 @@ import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorageManager;
 import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.core.server.StorageMessageReader;
+import org.apache.activemq.artemis.utils.SizeAwareMetric;
 import org.apache.artemis.database.data.MessageData;
 import org.apache.artemis.database.queries.QueryUtil;
 import org.apache.artemis.database.worker.DataManager;
@@ -50,6 +51,8 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
 
    final DataManager dataManager;
 
+   final SizeAwareMetric pagedSize = new SizeAwareMetric();
+
    public DatabaseStorageMessageReader(QueueImpl queue, DatabaseStorageManager databaseStorageManager, PagingStore pagingStore) {
       this(queue, databaseStorageManager.getDataManager(), pagingStore::getPrefetchPageMessages, pagingStore::getPrefetchPageBytes);
    }
@@ -65,6 +68,14 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
    public void scheduleRead(boolean scheduleExpiry) {
       List<Message> receivedMessages = new ArrayList<>();
       dataManager.executeQuery(queue.getExecutor(), w -> this.executePrefetch(w, receivedMessages), () -> deliverMessages(receivedMessages));
+   }
+
+   public long getPagedMessages() {
+      return pagedSize.getElements();
+   }
+
+   public long getPagedBytes() {
+      return pagedSize.getSize();
    }
 
    private void executePrefetch(DataWorker worker, List<Message> messageList) throws SQLException {
@@ -95,6 +106,10 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
          }
          worker.pendingDeliveryQueryForUpdate.flush();
       }
+   }
+
+   public void reloadPage(long messages, long size) {
+      pagedSize.reloadValue(messages, size);
    }
 
    private void deliverMessages(List<Message> messageList) {

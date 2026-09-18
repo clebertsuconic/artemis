@@ -94,11 +94,15 @@ import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.LargeServerMessage;
 import org.apache.activemq.artemis.core.server.MessageReference;
+import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.RouteContextList;
+import org.apache.activemq.artemis.core.server.StorageMessageReader;
 import org.apache.activemq.artemis.core.server.files.FileStoreMonitor;
 import org.apache.activemq.artemis.core.server.group.impl.GroupBinding;
 import org.apache.activemq.artemis.core.server.impl.AddressInfo;
+import org.apache.activemq.artemis.core.server.impl.DatabaseStorageMessageReader;
 import org.apache.activemq.artemis.core.server.impl.JournalLoader;
+import org.apache.activemq.artemis.core.server.impl.QueueImpl;
 import org.apache.activemq.artemis.core.transaction.ResourceManager;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.spi.core.protocol.MessagePersister;
@@ -110,6 +114,7 @@ import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
 import org.apache.artemis.database.DatabaseProvider;
 import org.apache.artemis.database.DatabaseStoreTX;
 import org.apache.artemis.database.queries.AddressJDBCQuery;
+import org.apache.artemis.database.queries.CountPagedMessageQuery;
 import org.apache.artemis.database.queries.GenericDataJDBCQuery;
 import org.apache.artemis.database.queries.MessagesJDBCQuery;
 import org.apache.artemis.database.queries.QueueJDBCQuery;
@@ -909,11 +914,30 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
       Map<Long, Message> loadedMessages = new HashMap<>();
       try (Connection connection = this.databaseProvider.getConnection()) {
-         MessagesJDBCQuery query = new MessagesJDBCQuery(databaseProvider, connection);
-         logger.info("Querying messages");
-         query.query(data -> {
-            loadedMessages.put(data.messageID, decodeMessage(data));
-         });
+         {
+            MessagesJDBCQuery query = new MessagesJDBCQuery(databaseProvider, connection);
+            logger.info("Querying messages");
+            query.query(data -> {
+               loadedMessages.put(data.messageID, decodeMessage(data));
+            });
+         }
+
+         {
+            CountPagedMessageQuery query = new CountPagedMessageQuery(databaseProvider, connection);
+            query.query(true, d -> {
+               Queue queue = postOffice.findQueue(d.queueId);
+               if (queue == null) {
+                  // @Bob: I need a logger that Queue is not found. logger.warn
+                  logger.warn("Queue {} not found. Ignoring data", d.queueId);
+                  return;
+               }
+
+               StorageMessageReader storageMessageReader = queue.getStorageMessageReader();
+               assert storageMessageReader instanceof DatabaseStorageMessageReader;
+
+               ((DatabaseStorageMessageReader) storageMessageReader).reloadPage(d.msgCount, d.memEstimate);
+            });
+         }
 
          logger.info("Querying references");
          ReferencesJDBCQuery referencesQuery = new ReferencesJDBCQuery(databaseProvider, connection);
@@ -931,9 +955,13 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
          logger.info("Querying orphaned messages");
          Map<Long, Message> orphanedMessages = new HashMap<>();
-         query.queryOrphaned(data -> {
-            orphanedMessages.put(data.messageID, decodeMessage(data));
-         });
+
+         {
+            MessagesJDBCQuery query = new MessagesJDBCQuery(databaseProvider, connection);
+            query.queryOrphaned(data -> {
+               orphanedMessages.put(data.messageID, decodeMessage(data));
+            });
+         }
 
          logger.info("Handling orphaned messages");
          journalLoader.handleNoMessageReferences(orphanedMessages);

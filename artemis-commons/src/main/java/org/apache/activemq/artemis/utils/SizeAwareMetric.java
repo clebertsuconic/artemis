@@ -151,6 +151,13 @@ public class SizeAwareMetric {
       return addSize(delta, sizeOnly, true);
    }
 
+   public final void reloadValue(long message, long size)  {
+      changeFlag(NOT_USED, FREE);
+
+      elementsUpdater.addAndGet(this, message);
+      sizeUpdater.addAndGet(this, size);
+   }
+
    public final long addSize(final int delta, final boolean sizeOnly, boolean affectCallbacks) {
       if (delta == 0) {
          if (logger.isDebugEnabled()) {

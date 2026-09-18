@@ -78,16 +78,22 @@ public class PagingManagerImpl implements PagingManager {
 
    private final Set<AddressSizeLimiter> blockedStored = new ConcurrentHashSet<>();
 
+   // GO-UP
    private final ConcurrentMap<SimpleString, PagingStore> stores = new ConcurrentHashMap<>();
 
+   // GO-UP
    private final HierarchicalRepository<AddressSettings> addressSettingsRepository;
 
+   // GO-UP
    private final ActiveMQServer server;
 
+   // GO-UP
    private PagingStoreFactory pagingStoreFactory;
 
+   // GO-UP
    private volatile boolean globalFull;
 
+   // GO-UP
    private void setGlobalFull(boolean globalFull) {
       synchronized (memoryCallback) {
          this.globalFull = globalFull;
@@ -95,10 +101,13 @@ public class PagingManagerImpl implements PagingManager {
       }
    }
 
+   // GO-UP
    private final SizeAwareMetric globalSizeMetric;
 
+   // GO-UP
    private long maxSize;
 
+   // GO-UP
    private long maxMessages;
 
    private volatile boolean cleanupEnabled = true;
@@ -111,6 +120,7 @@ public class PagingManagerImpl implements PagingManager {
 
    private final Executor managerExecutor;
 
+   // GO-UP
    private final Queue<Runnable> memoryCallback = new ConcurrentLinkedQueue<>();
 
    private final ConcurrentMap</*TransactionID*/Long, PageTransactionInfo> transactions = new ConcurrentHashMap<>();
@@ -148,6 +158,7 @@ public class PagingManagerImpl implements PagingManager {
       this.server = server;
    }
 
+   // GO-UP
    SizeAwareMetric getSizeAwareMetric() {
       return globalSizeMetric;
    }
@@ -161,11 +172,13 @@ public class PagingManagerImpl implements PagingManager {
       this.globalSizeMetric.setMax(maxSize, maxSize, maxMessages, maxMessages);
    }
 
+   // GO-UP
    @Override
    public long getMaxSize() {
       return maxSize;
    }
 
+   // GO-UP
    @Override
    public long getMaxMessages() {
       return maxMessages;
@@ -182,20 +195,24 @@ public class PagingManagerImpl implements PagingManager {
       this(pagingSPI, addressSettingsRepository, -1, -1, managementAddress, null);
    }
 
+   // GO-UP
    @Override
    public void addBlockedStore(AddressSizeLimiter store) {
       blockedStored.add(store);
    }
 
+   // GO-UP
    public Set<AddressSizeLimiter> getBlockedSet() {
       return new HashSet<>(blockedStored);
    }
 
+   // GO-UP
    @Override
    public void onChange() {
       reapplySettings();
    }
 
+   // GO-UP
    private void reapplySettings() {
       for (PagingStore store : stores.values()) {
          AddressSettings settings = this.addressSettingsRepository.getMatch(store.getAddress().toString());
@@ -203,6 +220,7 @@ public class PagingManagerImpl implements PagingManager {
       }
    }
 
+   // GO-UP
    @Override
    public PagingManagerImpl addSize(int size, boolean sizeOnly) {
       long newSize = globalSizeMetric.addSize(size, sizeOnly);
@@ -214,16 +232,19 @@ public class PagingManagerImpl implements PagingManager {
       return this;
    }
 
+   // GO-UP
    @Override
    public long getGlobalSize() {
       return globalSizeMetric.getSize();
    }
 
+   // GO-UP
    @Override
    public long getGlobalMessages() {
       return globalSizeMetric.getElements();
    }
 
+   // GO-UP
    protected void checkMemoryRelease() {
       if (!diskFull && (maxSize < 0 || !globalFull) && !blockedStored.isEmpty()) {
          if (!memoryCallback.isEmpty()) {
@@ -310,6 +331,7 @@ public class PagingManagerImpl implements PagingManager {
       return maxSize > 0;
    }
 
+   // GO-UP
    @Override
    public void checkMemory(final Runnable runWhenAvailable) {
       if (isGlobalFull()) {
@@ -328,6 +350,7 @@ public class PagingManagerImpl implements PagingManager {
       runWhenAvailable.run();
    }
 
+   // GO-UP
    private void memoryReleased() {
       Runnable runnable;
 
@@ -336,6 +359,7 @@ public class PagingManagerImpl implements PagingManager {
       }
    }
 
+   // GO-UP (however the lower portion should add diskFull, since diskFull will stay down)
    @Override
    public boolean isGlobalFull() {
       return diskFull || maxSize > 0 && globalFull;
@@ -375,12 +399,14 @@ public class PagingManagerImpl implements PagingManager {
       }
    }
 
+   // GO-UP
    @Override
    public SimpleString[] getStoreNames() {
       Set<SimpleString> names = stores.keySet();
       return names.toArray(new SimpleString[names.size()]);
    }
 
+   // GO-UP
    private void stopStore(SimpleString storeName, PagingStore store) {
       try {
          store.stop();
@@ -422,6 +448,7 @@ public class PagingManagerImpl implements PagingManager {
       }
    }
 
+   // GO-UP
    /**
     * This method creates a new store if not exist.
     */
@@ -569,6 +596,7 @@ public class PagingManagerImpl implements PagingManager {
       }
    }
 
+   // GO-UP
    //any caller that calls this method must guarantee the store doesn't exist.
    private PagingStore newStore(final SimpleString address) throws Exception {
       assert managementAddress == null || (managementAddress != null && !address.startsWith(managementAddress));

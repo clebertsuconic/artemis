@@ -4056,6 +4056,11 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
       }
    }
 
+   @Override
+   public StorageMessageReader getStorageMessageReader() {
+      return storageMessageReader;
+   }
+
    private class DelayedAddRedistributor implements Runnable {
 
       private final ArtemisExecutor executor1;

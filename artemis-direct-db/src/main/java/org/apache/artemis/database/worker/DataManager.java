@@ -22,6 +22,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +36,7 @@ import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.activemq.artemis.core.journal.StorageTX;
 import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
+import org.apache.artemis.database.ActiveMQDirectDBBundle;
 import org.apache.artemis.database.DatabaseProvider;
 import org.apache.artemis.database.DatabaseStoreTX;
 import org.apache.artemis.database.data.AddressData;
@@ -71,7 +73,8 @@ public class DataManager extends ActiveMQScheduledComponent {
    final Executor executorService;
 
    List<DataWorker> allWorkers;
-   ConcurrentLinkedQueue<DataWorker> workers;
+
+   LinkedBlockingDeque<DataWorker> workers;
    final ConcurrentLinkedQueue<QueryInterceptor> scheduledQueries = new ConcurrentLinkedQueue<>();
 
    final ArrayList<DBData> pendingData = new ArrayList<>();
@@ -108,7 +111,7 @@ public class DataManager extends ActiveMQScheduledComponent {
       this.retryIntervalMillisSupplier = retryIntervalMillisSupplier;
       this.criticalErrorListener = criticalErrorListener;
       allWorkers = new ArrayList<>();
-      workers = new ConcurrentLinkedQueue<>();
+      workers = new LinkedBlockingDeque<>();
       for (int i = 0; i < numberOfConnections; i++) {
          DataWorker worker = new DataWorker(this, databaseProvider, batchSize, "worker " + i);
          allWorkers.add(worker);
@@ -443,12 +446,34 @@ public class DataManager extends ActiveMQScheduledComponent {
       }
    }
 
+   /** *
+    * Executes a query using the current thread.
+    * Use this method sparingly. it's good for startup conditions.
+    * @param consumer the worker that will perform the query
+    * @param afterCommit
+    * @param connectionPoolTimeout
+    * @param unit
+    */
+   public void executeQuery(SQLConsumer<DataWorker> consumer, Runnable afterCommit, int connectionPoolTimeout, TimeUnit unit) throws Exception {
+      try {
+         DataWorker worker = workers.poll(connectionPoolTimeout, unit);
+         if (worker == null) {
+            throw ActiveMQDirectDBBundle.BUNDLE.timedOutWaitingForWorker(connectionPoolTimeout, unit.toString());
+         }
+         QueryInterceptor queryInterceptor = new QueryInterceptor(null, consumer, afterCommit);
+         queryInterceptor.run();
+      } catch (InterruptedException e) {
+         Thread.currentThread().interrupt();
+         throw new RuntimeException(e.getMessage(), e);
+      }
+   }
+
+
    public void executeQuery(Executor targetExecutor, SQLConsumer<DataWorker> consumer, Runnable afterCommit) {
       dispatchQuery(new QueryInterceptor(targetExecutor, consumer, afterCommit));
    }
 
-   private boolean dispatchQuery(QueryInterceptor workerInterceptor) {
-      DataWorker worker = workers.poll();
+   private boolean dispatchQuery(QueryInterceptor workerInterceptor) {      DataWorker worker = workers.poll();
       if (worker != null) {
          workerInterceptor.setWorker(worker);
          workerInterceptor.getExecutor().execute(workerInterceptor);

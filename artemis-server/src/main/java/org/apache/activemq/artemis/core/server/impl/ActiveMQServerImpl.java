@@ -3582,13 +3582,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
 
       loadProtocolServices();
 
-      if (pagingManager instanceof PagingManagerImpl) {
-         // Initialize the pagingManager if being used
-         initializePagingManager();
-      } else {
-         Set<Long> storedLargeMessages = new HashSet<>();
-         loadJournals(storedLargeMessages);
-      }
+      initializeStorage();
 
       removeExtraAddressStores();
 
@@ -3670,13 +3664,13 @@ public class ActiveMQServerImpl implements ActiveMQServer {
       deployFileStoreMonitor();
    }
 
-   private void initializePagingManager() throws Exception {
+   private void initializeStorage() throws Exception {
       pagingManager.reloadStores();
 
       Set<Long> storedLargeMessages = new HashSet<>();
       loadJournals(storedLargeMessages);
 
-      if (rebuildCounters) {
+      if (pagingManager != null && pagingManager.requireRebuildCounters() && rebuildCounters) {
          pagingManager.rebuildCounters(storedLargeMessages);
 
          pagingManager.execute(() -> {

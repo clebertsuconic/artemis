@@ -182,4 +182,19 @@ public abstract class SQLProvider {
       return String.format("SELECT ID, RECORD_TYPE, TX_ID, DATA_RECORD FROM %s ORDER BY ID", tableName);
    }
 
+   public String countPagedMessages(Boolean paged) {
+      String messageTable = getMessages();
+      String referencesTable = getRefs();
+      String pagedClause = "";
+      if (paged != null) {
+         pagedClause = "AND xref.paged = '" + (paged ? "Y" : "N") + ";";
+      }
+      return String.format(
+         "SELECT xref.queue_id queue_id, count(*) msg_count, sum(dm.memory_estimate) mem_estimate " +
+         "FROM %s xref, %s dm " +
+         "WHERE dm.message_id = xref.message_id %s " +
+         "GROUP BY xref.queue_id",
+         referencesTable, messageTable, pagedClause);
+   }
+
 }

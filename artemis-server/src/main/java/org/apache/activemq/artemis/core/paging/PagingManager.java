@@ -44,6 +44,11 @@ import org.apache.activemq.artemis.core.settings.HierarchicalRepositoryChangeLis
  */
 public interface PagingManager extends ActiveMQComponent, HierarchicalRepositoryChangeListener {
 
+
+   default boolean requireRebuildCounters() {
+      return true;
+   }
+
    /**
     * {@return the PageStore associated with the address; a new page store is created if necessary}
     */
