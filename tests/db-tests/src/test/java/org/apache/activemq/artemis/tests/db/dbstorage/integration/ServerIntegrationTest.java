@@ -547,8 +547,6 @@ public class ServerIntegrationTest extends AbstractStatementTest {
       ExecutorService service = Executors.newSingleThreadExecutor();
       runAfter(service::shutdownNow);
 
-
-
       CountDownLatch done = new CountDownLatch(1);
       AtomicInteger errors = new AtomicInteger(0);
       AtomicInteger totalMessages = new AtomicInteger(0);
@@ -557,6 +555,9 @@ public class ServerIntegrationTest extends AbstractStatementTest {
       assertTrue(done.await(10, TimeUnit.SECONDS));
       assertEquals(0, errors.get());
       assertEquals(50, totalMessages.get());
+
+      DatabaseStorageMessageReader messageReader = (DatabaseStorageMessageReader) queue.getStorageMessageReader();
+      assertEquals(50L, messageReader.getPagedMessages());
 
       DatabasePagingStoreImpl pagingStore = (DatabasePagingStoreImpl) queue.getPagingStore();
 
