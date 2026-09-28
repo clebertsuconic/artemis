@@ -34,7 +34,6 @@ public class MessagesPendingDeliverQueryForUpdate {
    Connection connection;
    DatabaseProvider databaseProvider;
    PreparedStatement deliveryPreparedStatement;
-   PreparedStatement updateDeliveryStatement;
 
    public MessagesPendingDeliverQueryForUpdate(DatabaseProvider databaseProvider, Connection connection) {
       this.databaseProvider = databaseProvider;
@@ -42,29 +41,14 @@ public class MessagesPendingDeliverQueryForUpdate {
    }
 
    public void prepare() throws SQLException {
-      String messagesTable = databaseProvider.getSqlProvider().getMessages();
       String referencesTable = databaseProvider.getSqlProvider().getRefs();
-      String deliverSQL = databaseProvider.getSqlProvider().deliverPendingMessages(messagesTable, referencesTable);
+      String deliverSQL = databaseProvider.getSqlProvider().deliverPendingMessages(referencesTable);
       deliveryPreparedStatement = connection.prepareStatement(deliverSQL);
-
-      String updateSql = databaseProvider.getSqlProvider().updatePendingDelivery(referencesTable);
-      updateDeliveryStatement = connection.prepareStatement(updateSql);
+      deliveryPreparedStatement.setFetchSize(100);
    }
-
-   public void updateDelivery(long queueID, long messageID) throws SQLException {
-      updateDeliveryStatement.setLong(1, queueID);
-      updateDeliveryStatement.setLong(2, messageID);
-      updateDeliveryStatement.addBatch();
-   }
-
-   public void flush() throws SQLException {
-      updateDeliveryStatement.executeBatch();
-   }
-
 
    public void close() throws Exception {
       deliveryPreparedStatement.close();
-      updateDeliveryStatement.close();
    }
 
    public ResultSet execute(long queueID) throws SQLException {

@@ -93,6 +93,10 @@ public class DataWorker implements Runnable {
       connect();
    }
 
+   public Connection getConnection() {
+      return connection;
+   }
+
    protected void connect() throws SQLException {
       connection = databaseProvider.getConnection();
       connection.setAutoCommit(false);

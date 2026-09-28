@@ -30,7 +30,8 @@ public class QueryUtil {
       long messageID = resultSet.getLong(idColumn);
       byte[] bytes = resultSet.getBytes(bytesColumn);
       ActiveMQBuffer buffer = ActiveMQBuffers.wrappedBuffer(bytes);
-      int memoryEstimate = resultSet.getInt(memoryEstimateColumn);
+      int memoryEstimate = memoryEstimateColumn > 0 ? resultSet.getInt(memoryEstimateColumn) : 0;
+
       return new MessageData(messageID, () -> buffer, null, memoryEstimate);
    }
 }

@@ -20,6 +20,7 @@ import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
@@ -31,6 +32,7 @@ import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContex
 import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorageManager;
 import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
 import org.apache.activemq.artemis.utils.RandomUtil;
+import org.apache.artemis.database.queries.MessageDeliveryUpdater;
 import org.apache.artemis.database.queries.MessagesJDBCQuery;
 import org.apache.artemis.database.queries.MessagesPendingDeliverQueryForUpdate;
 import org.apache.artemis.database.queries.QueryUtil;
@@ -267,17 +269,29 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
       validateNewDBTotalMessages(databaseProvider, nrecords, nrecords);
 
+      MessageDeliveryUpdater messageDeliveryUpdater = new MessageDeliveryUpdater(databaseProvider);
+      messageDeliveryUpdater.init();
       MessagesPendingDeliverQueryForUpdate pendingDeliveryLoad = new MessagesPendingDeliverQueryForUpdate(databaseProvider, connection);
       pendingDeliveryLoad.prepare();
 
       java.util.concurrent.atomic.AtomicInteger count = new java.util.concurrent.atomic.AtomicInteger();
       ResultSet resultSet = pendingDeliveryLoad.execute(queueID);
+      ArrayList<String> ids = new ArrayList<>();
       while (resultSet.next()) {
-         MessageData messageData = QueryUtil.readMessageData(resultSet, 1, 2, 3);
-         pendingDeliveryLoad.updateDelivery(queueID, messageData.messageID);
+         String id = resultSet.getString(1);
+         ids.add(id);
+      }
+      resultSet.close();
+
+      ResultSet blobsResultSet = connection.createStatement().executeQuery(databaseProvider.getSqlProvider().selectMessagesBlob("DB_MESSAGES", ids));
+      while (blobsResultSet.next()) {
+         MessageData messageData = QueryUtil.readMessageData(blobsResultSet, 1, 2, -1);
+         messageDeliveryUpdater.updateDelivery(queueID, messageData.messageID);
          count.incrementAndGet();
       }
-      pendingDeliveryLoad.flush();
+
+      messageDeliveryUpdater.flush();
+      messageDeliveryUpdater.commit();
       connection.commit();
       assertEquals(nrecords, count.get());
 

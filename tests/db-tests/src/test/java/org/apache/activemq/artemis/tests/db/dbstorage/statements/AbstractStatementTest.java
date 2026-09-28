@@ -83,7 +83,9 @@ public class AbstractStatementTest extends ParameterDBTestBase {
    public void setUp() throws Exception {
       super.setUp();
       assumeTrue(database != Database.DERBY);
-      dropDatabase();
+      if (isDropDatabase()) {
+         dropDatabase();
+      }
    }
 
 

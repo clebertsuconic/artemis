@@ -17,6 +17,9 @@
 
 package org.apache.artemis.database.sql;
 
+import java.util.List;
+import java.util.StringJoiner;
+
 public abstract class SQLProvider {
 
    public String getSelectCount(String tableName) {
@@ -140,8 +143,9 @@ public abstract class SQLProvider {
       return value;
    }
 
-   public String deliverPendingMessages(String messagesTable, String referencesTable) {
-      return String.format("SELECT a.MESSAGE_ID MESSAGE_ID, a.MESSAGE_RECORD MESSAGE_RECORD, a.MEMORY_ESTIMATE MEMORY_ESTIMATE, b.PAGED PAGED FROM %s a, %s b WHERE a.MESSAGE_ID = b.MESSAGE_ID AND b.QUEUE_ID=? AND b.PAGED='Y' ORDER BY a.MESSAGE_ID", messagesTable, referencesTable);
+   public String deliverPendingMessages(String referencesTable) {
+      //return String.format("SELECT a.MESSAGE_ID MESSAGE_ID, a.MESSAGE_RECORD MESSAGE_RECORD, a.MEMORY_ESTIMATE MEMORY_ESTIMATE, b.PAGED PAGED FROM %s a, %s b WHERE a.MESSAGE_ID = b.MESSAGE_ID AND b.QUEUE_ID=? AND b.PAGED='Y' ORDER BY a.MESSAGE_ID", messagesTable, referencesTable);
+      return String.format("SELECT DR.MESSAGE_ID FROM %s DR WHERE DR.QUEUE_ID=? AND DR.PAGED='Y' ORDER BY DR.MESSAGE_ID", referencesTable);
    }
 
    public String updatePendingDelivery(String tableName) {
@@ -162,6 +166,13 @@ public abstract class SQLProvider {
 
    public String selectQueue(String tableName) {
       return String.format("SELECT QUEUE_ID, ADDRESS_ID, QUEUE_NAME, IS_MULTICAST, IS_ANYCAST, FILTER_STRING, QUEUE_CONFIG FROM %s ORDER BY QUEUE_ID", tableName);
+   }
+
+   public String selectMessagesBlob(String tableName, List<String> ids) {
+      StringJoiner inClause = new StringJoiner(",");
+      ids.forEach(inClause::add);
+      String query = String.format("SELECT MESSAGE_ID, MESSAGE_RECORD, MEMORY_ESTIMATE FROM %s WHERE MESSAGE_ID IN (%s) ORDER BY MESSAGE_ID", tableName, inClause);
+      return query;
    }
 
    public String selectPage(String tableName) {

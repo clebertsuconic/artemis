@@ -725,4 +725,8 @@ public class DataManager extends ActiveMQScheduledComponent {
       }
    }
 
+   public DatabaseProvider getDatabaseProvider() {
+      return databaseProvider;
+   }
+
 }

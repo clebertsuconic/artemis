@@ -36,9 +36,6 @@ public class DatabaseProvider {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
    private DataSource dataSource;
-   private Executor networkTimeoutExecutor;
-   private int networkTimeoutMillis;
-   private boolean supportNetworkTimeout;
    private final String user;
    private final String password;
 
@@ -46,9 +43,6 @@ public class DatabaseProvider {
 
    public DatabaseProvider(DataSource dataSource, String user, String password) throws SQLException {
       this.dataSource = dataSource;
-      this.networkTimeoutExecutor = null;
-      this.networkTimeoutMillis = -1;
-      this.supportNetworkTimeout = true;
       this.user = user;
       this.password = password;
       this.sqlProvider = detectSqlProvider(dataSource, user, password);
@@ -92,25 +86,6 @@ public class DatabaseProvider {
          throw e;
       }
 
-      if (this.networkTimeoutMillis >= 0 && this.networkTimeoutExecutor == null) {
-         logger.warn("Unable to set a network timeout on the JDBC connection: networkTimeoutExecutor is null");
-      }
-
-      if (this.networkTimeoutMillis >= 0 && this.networkTimeoutExecutor != null) {
-         if (supportNetworkTimeout) {
-            try {
-               connection.setNetworkTimeout(this.networkTimeoutExecutor, this.networkTimeoutMillis);
-            } catch (SQLException e) {
-               supportNetworkTimeout = false;
-               logger.warn(JDBCUtils.appendSQLExceptionDetails(new StringBuilder(), e).toString());
-               logger.warn("Unable to set a network timeout on the JDBC connection: won't retry again in the future");
-            } catch (Throwable throwable) {
-               supportNetworkTimeout = false;
-               //it included SecurityExceptions and UnsupportedOperationException
-               logger.warn("Unable to set a network timeout on the JDBC connection: won't retry again in the future", throwable);
-            }
-         }
-      }
       return connection;
    }
 

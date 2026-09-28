@@ -90,8 +90,15 @@ public abstract class ParameterDBTestBase extends RealServerTestBase {
 
       registerDB();
 
-      dropDatabase();
+      if (isDropDatabase()) {
+         dropDatabase();
+      }
    }
+
+   protected boolean isDropDatabase() {
+      return true;
+   }
+
 
    // Register the database on driver and prepares the classLoader to be used
    private void registerDB() throws Exception {
