@@ -108,6 +108,10 @@ public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQ
       return false;
    }
 
+   default boolean largeMessagesInline() {
+      return false;
+   }
+
    default long getWarningRecordSize() {
       // Null journal is pretty much memory
       return Long.MAX_VALUE;

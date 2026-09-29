@@ -85,7 +85,7 @@ public abstract class SQLProvider {
    }
 
    public String deleteMessages(String tableName, String refs) {
-      return String.format("DELETE FROM %s a WHERE a.MESSAGE_ID=? and 1 not in (SELECT 1 FROM %s b where b.MESSAGE_ID = a.MESSAGE_ID)", tableName, refs);
+      return String.format("DELETE FROM %s WHERE MESSAGE_ID=? AND NOT EXISTS (SELECT 1 FROM %s WHERE %s.MESSAGE_ID = %s.MESSAGE_ID)", tableName, refs, refs, tableName);
    }
 
    public String insertPage(String tableName) {
@@ -138,9 +138,7 @@ public abstract class SQLProvider {
    }
 
    public String deleteOrphanedMessages(String messagesTable, String referencesTable) {
-      String value = String.format("DELETE FROM %s a WHERE a.MESSAGE_ID NOT IN (SELECT b.MESSAGE_ID FROM %s b WHERE a.MESSAGE_ID = b.MESSAGE_ID)", messagesTable, referencesTable);
-      System.out.println(value);
-      return value;
+      return String.format("DELETE FROM %s WHERE NOT EXISTS (SELECT 1 FROM %s WHERE %s.MESSAGE_ID = %s.MESSAGE_ID)", messagesTable, referencesTable, referencesTable, messagesTable);
    }
 
    public String deliverPendingMessages(String referencesTable) {

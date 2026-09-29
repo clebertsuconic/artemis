@@ -127,6 +127,11 @@ import org.slf4j.LoggerFactory;
 
 public class DatabaseStorageManager extends AbstractStorageManager {
    @Override
+   public boolean largeMessagesInline() {
+      return true;
+   }
+
+   @Override
    public PagingManager createPagingManager(ActiveMQServer server) throws Exception {
       DatabasePagingStoreFactory factory = new DatabasePagingStoreFactory(this, server.getConfiguration().getPageSyncTimeout(), scheduledExecutorService, executorFactory, server.getConfiguration().isJournalSyncNonTransactional(), server::getAddressInfo);
       DatabasePagingManager pagingManager = new DatabasePagingManager(factory, server.getAddressSettingsRepository(), server.getConfiguration().getGlobalMaxSize(), server.getConfiguration().getGlobalMaxMessages(), server.getConfiguration().getManagementAddress(), server);
@@ -1140,12 +1145,18 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public LargeServerMessage createCoreLargeMessage() {
-      return null;
+      DatabaseLargeServerMessage msg = new DatabaseLargeServerMessage();
+      msg.setStorageManager(this);
+      return msg;
    }
 
    @Override
    public LargeServerMessage createCoreLargeMessage(long id, Message message) throws Exception {
-      return null;
+      DatabaseLargeServerMessage largeMessage = new DatabaseLargeServerMessage();
+      largeMessage.setStorageManager(this);
+      largeMessage.moveHeadersAndProperties(message);
+      largeMessage.setMessageID(id);
+      return largeMessage;
    }
 
    @Override

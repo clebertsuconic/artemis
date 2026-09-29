@@ -549,7 +549,8 @@ public class DataManager extends ActiveMQScheduledComponent {
       List<DBData> dataList = extractTaskList();
       if (dataList != null && !dataList.isEmpty()) {
          logger.info("Extracted dataList with {} elements", dataList.size());
-         // At this point we don't need a lock. we already have the list of tasks, and workUp is called from a single thread
+         // Mark each IOCompletion as busy so no other worker will use them while this batch is being persisted.
+         // No lock needed here: the task list is already drained, and flush() is single-threaded.
          ioCompletions(dataList).forEach(IOCompletion::workUp);
          worker.setTaskList(dataList);
          executorService.execute(worker);

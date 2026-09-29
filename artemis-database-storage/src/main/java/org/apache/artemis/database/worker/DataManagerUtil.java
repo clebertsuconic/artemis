@@ -26,6 +26,7 @@ import org.apache.artemis.database.data.DBData;
 
 public class DataManagerUtil {
 
+   /** This gets a distinct list of IOCompletions */
    public static Set<IOCompletion> ioCompletions(List<DBData> dataList) {
       HashSet<IOCompletion> completionSet = new HashSet<>();
       if (dataList != null) {

@@ -22,6 +22,7 @@ import java.lang.invoke.MethodHandles;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPLargeMessage;
+import org.apache.activemq.artemis.protocol.amqp.broker.DatabaseAMQPLargeMessage;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPSessionCallback;
 import org.apache.qpid.proton.amqp.messaging.DeliveryAnnotations;
 import org.apache.qpid.proton.codec.ReadableBuffer;
@@ -111,7 +112,12 @@ public class AMQPLargeMessageReader implements MessageReader {
 
          if (currentMessage == null) {
             final long id = sessionSPI.getStorageManager().generateID();
-            AMQPLargeMessage localCurrentMessage = new AMQPLargeMessage(id, delivery.getMessageFormat(), null, sessionSPI.getCoreMessageObjectPools(), sessionSPI.getStorageManager());
+            AMQPLargeMessage localCurrentMessage;
+            if (sessionSPI.getStorageManager().largeMessagesInline()) {
+               localCurrentMessage = new DatabaseAMQPLargeMessage(id, delivery.getMessageFormat(), sessionSPI.getCoreMessageObjectPools(), sessionSPI.getStorageManager());
+            } else {
+               localCurrentMessage = new AMQPLargeMessage(id, delivery.getMessageFormat(), null, sessionSPI.getCoreMessageObjectPools(), sessionSPI.getStorageManager());
+            }
             localCurrentMessage.parseHeader(dataBuffer);
 
             sessionSPI.getStorageManager().onLargeMessageCreate(id, localCurrentMessage);

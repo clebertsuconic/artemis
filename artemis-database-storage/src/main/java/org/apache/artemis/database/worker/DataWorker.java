@@ -315,8 +315,8 @@ public class DataWorker implements Runnable {
       pendingTX.clear();
       boolean locked = dataManager.acquireLock();
       try {
-         // if tryLock failed (because there was an interrupt), then I would still call workDone without any locks.
-         // I have done this on purpose as a defensive code to avoid data starving during shutdowns.
+         // Signal IOCompletions even if the lock wasn't acquired (e.g. interrupted during shutdown),
+         // to prevent data starvation — callers waiting on these completions must not block forever.
          ioCompletions(dataList).forEach(IOCompletion::workDone);
       } finally {
          if (locked) {
