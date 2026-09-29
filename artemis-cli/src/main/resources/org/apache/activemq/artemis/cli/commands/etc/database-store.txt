@@ -21,6 +21,7 @@
             ${databaseMaxRetries}
             ${databaseRetryIntervalMillis}
             ${databaseFlushPeriodNanos}
+            ${maxPendingWrites}
             ${databaseStorage}
          </database-store>
       </store>

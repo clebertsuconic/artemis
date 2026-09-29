@@ -23,6 +23,7 @@ import java.lang.invoke.MethodHandles;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -93,6 +94,42 @@ public class DataManager extends ActiveMQScheduledComponent {
 
    final Semaphore dataLock = new Semaphore(1);
    final ArrayList<DBData> pendingData = new ArrayList<>();
+   volatile int credits;
+   int maxCredits = 100_000;
+   final HashSet<Runnable> onRelease = new HashSet<>();
+
+   public void setMaxCredits(int maxCredits) {
+      this.maxCredits = maxCredits;
+   }
+
+   public void flowControl(Runnable block, Runnable release) {
+      if (!acquireLock()) {
+         return;
+      }
+      try {
+         if (credits >= maxCredits) {
+            if (logger.isDebugEnabled()) {
+               logger.debug("Flow control blocking, credits={}", credits);
+            }
+            block.run();
+            onRelease.add(release);
+         }
+      } finally {
+         releaseLock();
+      }
+   }
+
+   // to be called while acquireLock is already held
+   void checkReleaseFlowControl() {
+      if (!onRelease.isEmpty() && credits < maxCredits) {
+         if (logger.isDebugEnabled()) {
+            logger.debug("Flow control releasing {} targets, credits={}", onRelease.size(), credits);
+         }
+         onRelease.forEach(Runnable::run);
+         onRelease.clear();
+      }
+   }
+
 
    public MessageReferenceData newReferenceTask(long messageID,
                                                 long queueID,
@@ -199,6 +236,7 @@ public class DataManager extends ActiveMQScheduledComponent {
          dbData.forEach(DBData::lineUp);
          pendingData.addAll(dbData);
          pendingData.add(new TXDone((DatabaseStoreTX) storageTX));
+         credits += dbData.size() + 1;
       } finally {
          releaseLock();
       }
@@ -212,6 +250,7 @@ public class DataManager extends ActiveMQScheduledComponent {
       try {
          dbData.lineUp();
          pendingData.add(dbData);
+         credits++;
       } finally {
          releaseLock();
       }
@@ -460,12 +499,14 @@ public class DataManager extends ActiveMQScheduledComponent {
             if (ctx == null || !ctx.isWorking()) {
                tasksToRun.add(data);
                iter.remove();
+               credits--;
             } else {
                if (logger.isDebugEnabled()) {
                   logger.debug("Keeping data {} for later as there's a worker on it still, current pendingTasks = {}", data, data.getContext().getActiveWorkers());
                }
             }
          }
+         checkReleaseFlowControl();
       } finally {
          releaseLock();
       }

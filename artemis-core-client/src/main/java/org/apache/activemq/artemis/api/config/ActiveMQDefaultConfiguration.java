@@ -514,6 +514,8 @@ public final class ActiveMQDefaultConfiguration {
 
    private static final long DEFAULT_DATABASE_FLUSH_PERIOD_NANOS = (long) (1000000000d / 300);
 
+   private static final int DEFAULT_DATABASE_MAX_PENDING_WRITES = 100_000;
+
    // Default period to wait between connection TTL checks
    public static final long DEFAULT_CONNECTION_TTL_CHECK_INTERVAL = 2000;
 
@@ -1660,6 +1662,10 @@ public final class ActiveMQDefaultConfiguration {
 
    public static long getDefaultDatabaseFlushPeriodNanos() {
       return DEFAULT_DATABASE_FLUSH_PERIOD_NANOS;
+   }
+
+   public static int getDefaultDatabaseMaxPendingWrites() {
+      return DEFAULT_DATABASE_MAX_PENDING_WRITES;
    }
 
    public static long getDefaultConnectionTtlCheckInterval() {

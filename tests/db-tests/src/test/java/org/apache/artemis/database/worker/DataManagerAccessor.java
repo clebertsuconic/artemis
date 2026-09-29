@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.artemis.database.data.DBData;
+import org.apache.artemis.database.data.DeleteMessageData;
 
 public class DataManagerAccessor {
 
@@ -30,5 +31,30 @@ public class DataManagerAccessor {
 
    public static List<DBData> extractTaskList(DataManager dataManager) {
       return dataManager.extractTaskList();
+   }
+
+   public static void setCredits(DataManager dataManager, int credits) {
+      dataManager.acquireLock();
+      try {
+         dataManager.credits = credits;
+         dataManager.checkReleaseFlowControl();
+      } finally {
+         dataManager.releaseLock();
+      }
+   }
+
+   public static int getCredits(DataManager dataManager) {
+      return dataManager.credits;
+   }
+
+   public static int getOnReleaseSize(DataManager dataManager) {
+      return dataManager.onRelease.size();
+   }
+
+   public static void addMockPendingData(DataManager dataManager, int count) {
+      for (int i = 0; i < count; i++) {
+         dataManager.pendingData.add(new DeleteMessageData(i, null));
+         dataManager.credits++;
+      }
    }
 }

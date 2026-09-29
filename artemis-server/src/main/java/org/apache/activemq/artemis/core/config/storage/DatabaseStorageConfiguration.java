@@ -87,6 +87,8 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
 
    private long databaseFlushPeriodNanos = ActiveMQDefaultConfiguration.getDefaultDatabaseFlushPeriodNanos();
 
+   private int maxPendingWrites = ActiveMQDefaultConfiguration.getDefaultDatabaseMaxPendingWrites();
+
    private StoreType storeType = StoreType.DATABASE;
 
    @Override
@@ -235,6 +237,15 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
 
    public DatabaseStorageConfiguration setDatabaseFlushPeriodNanos(long databaseFlushPeriodNanos) {
       this.databaseFlushPeriodNanos = databaseFlushPeriodNanos;
+      return this;
+   }
+
+   public int getMaxPendingWrites() {
+      return maxPendingWrites;
+   }
+
+   public DatabaseStorageConfiguration setMaxPendingWrites(int maxPendingWrites) {
+      this.maxPendingWrites = maxPendingWrites;
       return this;
    }
 

@@ -3261,6 +3261,13 @@
                </xsd:documentation>
             </xsd:annotation>
          </xsd:element>
+         <xsd:element name="max-pending-writes" type="xsd:int" default="100000" maxOccurs="1" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  Maximum number of pending write operations before flow control blocks connections from reading.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
          <xsd:element name="database-storage" type="xsd:boolean" default="false" maxOccurs="1" minOccurs="0">
             <xsd:annotation>
                <xsd:documentation>

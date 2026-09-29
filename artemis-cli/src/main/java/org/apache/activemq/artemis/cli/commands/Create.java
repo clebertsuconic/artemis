@@ -751,6 +751,7 @@ public class Create extends InstallAbstract {
             filters.put("${databaseMaxRetries}", "<database-max-retries>" + ActiveMQDefaultConfiguration.getDefaultDatabaseMaxRetries() + "</database-max-retries>");
             filters.put("${databaseRetryIntervalMillis}", "<database-retry-interval-millis>" + ActiveMQDefaultConfiguration.getDefaultDatabaseRetryIntervalMillis() + "</database-retry-interval-millis>");
             filters.put("${databaseFlushPeriodNanos}", "<database-flush-period-nanos>" + ActiveMQDefaultConfiguration.getDefaultDatabaseFlushPeriodNanos() + "</database-flush-period-nanos>");
+            filters.put("${maxPendingWrites}", "<max-pending-writes>" + ActiveMQDefaultConfiguration.getDefaultDatabaseMaxPendingWrites() + "</max-pending-writes>");
          } else {
             filters.put("${databaseStorage}", "");
             filters.put("${databaseConnections}", "");
@@ -759,6 +760,7 @@ public class Create extends InstallAbstract {
             filters.put("${databaseMaxRetries}", "");
             filters.put("${databaseRetryIntervalMillis}", "");
             filters.put("${databaseFlushPeriodNanos}", "");
+            filters.put("${maxPendingWrites}", "");
          }
          filters.put("${jdbc}", readTextFile(ETC_DATABASE_STORE_TXT, filters));
       } else {
