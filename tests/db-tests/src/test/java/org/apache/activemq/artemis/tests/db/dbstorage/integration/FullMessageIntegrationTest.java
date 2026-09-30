@@ -182,7 +182,11 @@ public class FullMessageIntegrationTest extends AbstractStatementTest {
          }
       }
 
-      checkMessageCounts(1, false);
+      checkMessageCounts(1, true);
+
+      Queue serverQueue = server.locateQueue(queueName);
+
+      Wait.assertEquals(1L, serverQueue::getMessageCount);
 
       server.stop();
       server.start();

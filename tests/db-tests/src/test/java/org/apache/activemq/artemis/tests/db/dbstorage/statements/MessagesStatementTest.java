@@ -28,22 +28,22 @@ import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
-import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorageManager;
+import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
+import org.apache.activemq.artemis.tests.db.dbstorage.CountDownCompletion;
+import org.apache.activemq.artemis.tests.db.dbstorage.VariableCountCompletion;
+import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
 import org.apache.activemq.artemis.utils.RandomUtil;
+import org.apache.artemis.database.DatabaseProvider;
+import org.apache.artemis.database.data.MessageData;
+import org.apache.artemis.database.data.MessageReferenceData;
 import org.apache.artemis.database.queries.MessageDeliveryUpdater;
 import org.apache.artemis.database.queries.MessagesJDBCQuery;
 import org.apache.artemis.database.queries.MessagesPendingDeliverQueryForUpdate;
 import org.apache.artemis.database.queries.QueryUtil;
 import org.apache.artemis.database.statements.InsertMessageStatement;
 import org.apache.artemis.database.statements.InsertReferencesStatement;
-import org.apache.artemis.database.data.MessageData;
-import org.apache.artemis.database.data.MessageReferenceData;
-import org.apache.activemq.artemis.tests.db.dbstorage.CountDownCompletion;
-import org.apache.activemq.artemis.tests.db.dbstorage.VariableCountCompletion;
-import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
-import org.apache.artemis.database.DatabaseProvider;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledIf;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -62,13 +62,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
    @TestTemplate
    public void testReferencesDirectly() throws Exception {
-      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration,
-                                                                                 criticalAnalyzer,
-                                                                                 executorFactory,
-                                                                                 executorFactory,
-                                                                                 scheduledExecutorService,
-                                                                                 executorService,
-                                                                                 null);
+      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService, null);
       databaseStorageManager.start();
 
       DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
@@ -81,7 +75,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
          connection.setAutoCommit(false);
          InsertReferencesStatement insertReferencesStatement = new InsertReferencesStatement(databaseProvider, connection, 100);
          for (int i = 1; i <= nrecords; i++) {
-            MessageReferenceData task = databaseStorageManager.getDataManager().newReferenceTask(i, 1, false, i % 2 == 0 ? (long)i : null, latch);
+            MessageReferenceData task = databaseStorageManager.getDataManager().newReferenceTask(i, 1, false, i % 2 == 0 ? (long) i : null, latch);
             insertReferencesStatement.addElement(task, latch);
          }
          insertReferencesStatement.flushPending(true);
@@ -94,13 +88,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
    @TestTemplate
    public void testMessagesDirectly() throws Exception {
-      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration,
-                                                                                 criticalAnalyzer,
-                                                                                 executorFactory,
-                                                                                 executorFactory,
-                                                                                 scheduledExecutorService,
-                                                                                 executorService,
-                                                                                 null);
+      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService, null);
       databaseStorageManager.start();
 
       DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
@@ -129,13 +117,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
    @TestTemplate
    public void testMessagesStorageManager() throws Exception {
-      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration,
-                                                                                 criticalAnalyzer,
-                                                                                 executorFactory,
-                                                                                 executorFactory,
-                                                                                 scheduledExecutorService,
-                                                                                 executorService,
-                                                                                 null);
+      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService, null);
       databaseStorageManager.start();
 
       DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
@@ -179,13 +161,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
    @TestTemplate
    public void testMessagesJDBCQueryRoundTrip() throws Exception {
 
-      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration,
-                                                                                 criticalAnalyzer,
-                                                                                 executorFactory,
-                                                                                 executorFactory,
-                                                                                 scheduledExecutorService,
-                                                                                 executorService,
-                                                                                 null);
+      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService, null);
       databaseStorageManager.start();
 
       DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
@@ -230,17 +206,10 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
    }
 
-
    @TestTemplate
    public void testLoadPendingDeliveries() throws Exception {
 
-      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration,
-                                                                                 criticalAnalyzer,
-                                                                                 executorFactory,
-                                                                                 executorFactory,
-                                                                                 scheduledExecutorService,
-                                                                                 executorService,
-                                                                                 null);
+      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService, null);
       databaseStorageManager.start();
 
       DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
@@ -269,55 +238,49 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
       validateNewDBTotalMessages(databaseProvider, nrecords, nrecords);
 
-      MessageDeliveryUpdater messageDeliveryUpdater = new MessageDeliveryUpdater(databaseProvider);
-      messageDeliveryUpdater.init();
-      MessagesPendingDeliverQueryForUpdate pendingDeliveryLoad = new MessagesPendingDeliverQueryForUpdate(databaseProvider, connection);
-      pendingDeliveryLoad.prepare();
+      try (Connection secondaryConnection = databaseProvider.getConnection()) {
+         secondaryConnection.setAutoCommit(false);
+         MessageDeliveryUpdater messageDeliveryUpdater = new MessageDeliveryUpdater(databaseProvider, secondaryConnection);
+         messageDeliveryUpdater.init();
+         MessagesPendingDeliverQueryForUpdate pendingDeliveryLoad = new MessagesPendingDeliverQueryForUpdate(databaseProvider, connection);
+         pendingDeliveryLoad.prepare();
 
-      java.util.concurrent.atomic.AtomicInteger count = new java.util.concurrent.atomic.AtomicInteger();
-      ResultSet resultSet = pendingDeliveryLoad.execute(queueID);
-      ArrayList<String> ids = new ArrayList<>();
-      while (resultSet.next()) {
-         String id = resultSet.getString(1);
-         ids.add(id);
+         java.util.concurrent.atomic.AtomicInteger count = new java.util.concurrent.atomic.AtomicInteger();
+         ResultSet resultSet = pendingDeliveryLoad.execute(queueID);
+         ArrayList<String> ids = new ArrayList<>();
+         while (resultSet.next()) {
+            String id = resultSet.getString(1);
+            ids.add(id);
+         }
+         resultSet.close();
+
+         ResultSet blobsResultSet = connection.createStatement().executeQuery(databaseProvider.getSqlProvider().selectMessagesBlob("DB_MESSAGES", ids));
+         while (blobsResultSet.next()) {
+            MessageData messageData = QueryUtil.readMessageData(blobsResultSet, 1, 2, -1);
+            messageDeliveryUpdater.updateDelivery(queueID, messageData.messageID);
+            count.incrementAndGet();
+         }
+
+         messageDeliveryUpdater.flush();
+         secondaryConnection.commit();
+         assertEquals(nrecords, count.get());
+         connection.commit();
+
+         count.set(0);
+         MessagesJDBCQuery query = new MessagesJDBCQuery(databaseProvider, connection);
+         query.query(m -> {
+            count.incrementAndGet();
+            logger.debug("queried message {}", m.messageID);
+            assertTrue(m.messageID >= 1 && m.messageID <= nrecords, "messageID out of range: " + m.messageID);
+         });
+         assertEquals(nrecords, count.get());
       }
-      resultSet.close();
-
-      ResultSet blobsResultSet = connection.createStatement().executeQuery(databaseProvider.getSqlProvider().selectMessagesBlob("DB_MESSAGES", ids));
-      while (blobsResultSet.next()) {
-         MessageData messageData = QueryUtil.readMessageData(blobsResultSet, 1, 2, -1);
-         messageDeliveryUpdater.updateDelivery(queueID, messageData.messageID);
-         count.incrementAndGet();
-      }
-
-      messageDeliveryUpdater.flush();
-      messageDeliveryUpdater.commit();
-      connection.commit();
-      assertEquals(nrecords, count.get());
-
-
-      count.set(0);
-      MessagesJDBCQuery query = new MessagesJDBCQuery(databaseProvider, connection);
-      query.query(m -> {
-         count.incrementAndGet();
-         logger.debug("queried message {}", m.messageID);
-         assertTrue(m.messageID >= 1 && m.messageID <= nrecords, "messageID out of range: " + m.messageID);
-      });
-      assertEquals(nrecords, count.get());
 
    }
 
-
-
    @TestTemplate
    public void testMessagesAckTX() throws Exception {
-      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration,
-                                                                                 criticalAnalyzer,
-                                                                                 executorFactory,
-                                                                                 executorFactory,
-                                                                                 scheduledExecutorService,
-                                                                                 executorService,
-                                                                                 null);
+      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService, null);
       databaseStorageManager.start();
 
       DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
@@ -350,18 +313,9 @@ public class MessagesStatementTest extends AbstractStatementTest {
       assertEquals(0, selectCount(connection, databaseProvider.getSqlProvider().getMessages()));
    }
 
-
-
-
    @TestTemplate
    public void testMessagesReferencesStorageManager() throws Exception {
-      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration,
-                                                                                 criticalAnalyzer,
-                                                                                 executorFactory,
-                                                                                 executorFactory,
-                                                                                 scheduledExecutorService,
-                                                                                 executorService,
-                                                                                 null);
+      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService, null);
       databaseStorageManager.start();
 
       DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
@@ -388,7 +342,6 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
       assertEquals(nrecords, selectCount(connection, databaseProvider.getSqlProvider().getRefs()));
 
-
       int recordsToDelete = 20;
 
       for (int i = 1; i <= recordsToDelete; i++) {
@@ -407,24 +360,14 @@ public class MessagesStatementTest extends AbstractStatementTest {
 
    }
 
-
-
    @TestTemplate
    public void testTreatExceptionOnError() throws Exception {
-      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration,
-                                                                                 criticalAnalyzer,
-                                                                                 executorFactory,
-                                                                                 executorFactory,
-                                                                                 scheduledExecutorService,
-                                                                                 executorService,
-                                                                                 null);
+      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService, null);
       databaseStorageManager.start();
-
 
       DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
 
       int nrecords = 100;
-
 
       VariableCountCompletion ioCallback = new VariableCountCompletion();
 

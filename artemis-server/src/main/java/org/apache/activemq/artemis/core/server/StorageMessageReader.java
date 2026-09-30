@@ -35,7 +35,8 @@ public interface StorageMessageReader {
    default void addPendingAfterStorage(long elements, long size, Transaction tx) {
    }
 
-   default void addPending(long elements, long size) {
+   default boolean addPending(long elements, long size) {
+      return true;
    }
 
    default long getReaderPaged() {

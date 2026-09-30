@@ -17,6 +17,7 @@
 
 package org.apache.artemis.database.queries;
 
+import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -29,16 +30,15 @@ public class MessageDeliveryUpdater {
    DatabaseProvider provider;
    // Selecting-for-update with a cursor requires a separate connection in some database (e.g Postgres)
    // we will open a new connection while the cursor is active
-   Connection connection;
+   final Connection connection;
    PreparedStatement updateDeliveryStatement;
 
-   public MessageDeliveryUpdater(DatabaseProvider provider) {
+   public MessageDeliveryUpdater(DatabaseProvider provider, Connection connection) {
       this.provider = provider;
+      this.connection = connection;
    }
 
    public void init() throws SQLException {
-      connection = provider.getConnection();
-      connection.setAutoCommit(false);
       SQLProvider sqlProvider = provider.getSqlProvider();
       String updateSql = sqlProvider.updatePendingDelivery(sqlProvider.getRefs());
       updateDeliveryStatement = connection.prepareStatement(updateSql);
@@ -54,18 +54,8 @@ public class MessageDeliveryUpdater {
       updateDeliveryStatement.executeBatch();
    }
 
-   public void commit() throws SQLException {
-      connection.commit();
-   }
-
    public Connection getConnection() {
       return connection;
    }
 
-   public void close() {
-      try {
-         connection.close();
-      } catch (Throwable ignored) {
-      }
-   }
 }

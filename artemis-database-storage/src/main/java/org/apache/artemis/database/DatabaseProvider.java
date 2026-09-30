@@ -19,8 +19,8 @@ package org.apache.artemis.database;
 import javax.sql.DataSource;
 import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.concurrent.Executor;
 
 import org.apache.artemis.database.sql.DB2SQLProvider;
 import org.apache.artemis.database.sql.DerbySQLProvider;
@@ -85,6 +85,8 @@ public class DatabaseProvider {
          logger.error(JDBCUtils.appendSQLExceptionDetails(new StringBuilder(), e).toString());
          throw e;
       }
+
+      connection.setHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT);
 
       return connection;
    }

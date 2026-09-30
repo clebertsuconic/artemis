@@ -990,6 +990,9 @@ public interface ActiveMQServerLogger {
    @LogMessage(id = 222703, value = "Address \"{}\" is full. Bridge {} will disconnect", level = LogMessage.Level.WARN)
    void bridgeAddressFull(String addressName, String bridgeName);
 
+   @LogMessage(id = 222704, value = "StorageReader for queue {} has negative paged message count: {}", level = LogMessage.Level.WARN)
+   void storageReaderNegativePagedCount(String queueName, long count);
+
    @LogMessage(id = 222274, value = "Failed to deploy address {}: {}", level = LogMessage.Level.WARN)
    void problemDeployingAddress(String addressName, String message);
 

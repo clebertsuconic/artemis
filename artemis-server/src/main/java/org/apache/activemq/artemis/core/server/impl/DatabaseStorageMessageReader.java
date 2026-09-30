@@ -31,6 +31,7 @@ import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorageManager;
 import org.apache.activemq.artemis.core.server.MessageReference;
+import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.StorageMessageReader;
 import org.apache.activemq.artemis.core.transaction.Transaction;
@@ -48,6 +49,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DatabaseStorageMessageReader implements StorageMessageReader {
+
+   private static final int ID_BATCH_SIZE = 100;
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -67,7 +70,6 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
 
    final SizeAwareMetric pagedSize = new SizeAwareMetric();
 
-
    @Override
    public long getReaderPaged() {
       return pagedSize.getElements();
@@ -75,22 +77,31 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
 
    // -- Borrowed worker state (accessed only from the queue's executor thread) --
 
-   /** The currently borrowed worker, or null if none is active. */
+   /**
+    * The currently borrowed worker, or null if none is active.
+    */
    private BorrowedWorker borrowedWorker;
 
-   /** The open ResultSet cursor from the borrowed worker, or null. */
+   /**
+    * The open ResultSet cursor from the borrowed worker, or null.
+    */
    private ResultSet borrowedResultSet;
 
-   private MessageDeliveryUpdater deliveryUpdater;
-
-   /** True if the ResultSet was fully consumed (next() returned false). */
+   /**
+    * True if the ResultSet was fully consumed (next() returned false).
+    */
    private boolean resultSetExhausted;
 
-   public DatabaseStorageMessageReader(QueueImpl queue, DatabaseStorageManager databaseStorageManager, PagingStore pagingStore) {
+   public DatabaseStorageMessageReader(QueueImpl queue,
+                                       DatabaseStorageManager databaseStorageManager,
+                                       PagingStore pagingStore) {
       this(queue, databaseStorageManager, pagingStore::getPrefetchPageMessages, pagingStore::getPrefetchPageBytes);
    }
 
-   public DatabaseStorageMessageReader(QueueImpl queue, DatabaseStorageManager databaseStorageManager, Supplier<Integer> prefetchMessages, Supplier<Integer> prefetchBytes) {
+   public DatabaseStorageMessageReader(QueueImpl queue,
+                                       DatabaseStorageManager databaseStorageManager,
+                                       Supplier<Integer> prefetchMessages,
+                                       Supplier<Integer> prefetchBytes) {
       this.queue = queue;
       this.databaseStorageManager = databaseStorageManager;
       this.dataManager = databaseStorageManager.getDataManager();
@@ -122,7 +133,6 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
     * {@link BorrowedWorker#resume()}. Always runs on the queue's executor thread.
     */
    private void fetchMessages() {
-      List<Message> receivedMessages = new ArrayList<>();
       try {
          if (borrowedResultSet == null || resultSetExhausted) {
             // Need to open a new cursor (first call, or previous cursor was exhausted)
@@ -132,16 +142,14 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
          }
 
          if (queue.needsDepage()) {
-            readBatch(borrowedWorker.getWorker(), borrowedResultSet, receivedMessages);
+            readBatch(borrowedWorker.getWorker(), borrowedResultSet);
          }
          if (borrowedWorker != null && !borrowedWorker.isReturned()) {
             borrowedWorker.renewLease();
          }
       } catch (Throwable e) {
          logger.warn("Error during prefetch for queue {}: {}", queue.getName(), e.getMessage(), e);
-         reconnectReturnAndReschedule(e);
-      } finally {
-         deliverMessages(receivedMessages);
+         reconnectAndRetry(e);
       }
    }
 
@@ -165,22 +173,13 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
          logger.info("Executing query....");
          borrowedResultSet = borrowedWorker.getWorker().pendingDeliveryQueryForUpdate.execute(queue.getID());
 
-         if (deliveryUpdater != null) {
-            // defensive code, not going to happen
-            deliveryUpdater.close();
-         }
-
-         // As much as I tried not to, The the update while the cursor is being executed requires a separate connection
-         deliveryUpdater = new MessageDeliveryUpdater(dataManager.getDatabaseProvider());
-         deliveryUpdater.init();
-
          long end = System.currentTimeMillis();
          logger.info("took {} milliseconds to start returning results", (end - start));
          resultSetExhausted = false;
          return true;
       } catch (Throwable e) {
          logger.warn("Failed to execute prefetch query for queue {}: {}", queue.getName(), e.getMessage(), e);
-         reconnectReturnAndReschedule(e);
+         reconnectAndRetry(e);
          return false;
       }
    }
@@ -190,89 +189,129 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
     * pending delivery updates after each batch. If the ResultSet is exhausted
     * or the pool demands the connection back, the borrowed worker is returned.
     */
-   private void readBatch(DataWorker worker, ResultSet resultSet, List<Message> messageList) throws Exception {
-      int prefetchBytesValue = prefetchBytes.get();
-      int prefetchMessagesValue = prefetchMessages.get();
+   private void readBatch(DataWorker worker, ResultSet resultSet) throws Exception {
+      boolean reschedule = false;
+      try {
+         int prefetchBytesValue = prefetchBytes.get();
+         int prefetchMessagesValue = prefetchMessages.get();
 
-      if (prefetchMessagesValue <= 0) {
-         prefetchMessagesValue = 1000;
-      }
-
-      if (prefetchBytesValue <= 0) {
-         prefetchBytesValue = 1024 * 1024;
-      }
-
-      int messagesRead = 0;
-      int bytesRead = 0;
-      boolean cursorHasMore = true;
-
-      int idBatchSize = 100;
-
-      SQLProvider sqlProvider = dataManager.getDatabaseProvider().getSqlProvider();
-      String messagesTable = sqlProvider.getMessages();
-
-      while (queue.needsDepage()) {
-         if (borrowedWorker != null && borrowedWorker.needConnectionBack) {
-            logger.debug("Pool demands connection back, aborting prefetch for queue {}", queue.getName());
-            break;
+         if (prefetchMessagesValue <= 0) {
+            prefetchMessagesValue = 1000;
          }
 
-         ArrayList<String> ids = new ArrayList<>(idBatchSize);
-
-         if (resultSet.isClosed()) {
-            // DB2 might close the resultset when another resultset is open on the same connection
-            borrowedResultSet = borrowedWorker.getWorker().pendingDeliveryQueryForUpdate.execute(queue.getID());
-            resultSet = borrowedResultSet;
-         }
-         for (int i = 0; i < idBatchSize; i++) {
-            if (!resultSet.next()) {
-               cursorHasMore = false;
-               break;
-            }
-            ids.add(resultSet.getString(1));
+         if (prefetchBytesValue <= 0) {
+            prefetchBytesValue = 1024 * 1024;
          }
 
-         if (ids.isEmpty()) {
-            cursorHasMore = false;
-            break;
-         }
+         int messagesRead = 0;
+         int bytesRead = 0;
+         boolean cursorHasMore = true;
 
-         Connection connection = worker.getConnection();
-         try (Statement statement = connection.createStatement();
-              ResultSet blobRecords = statement.executeQuery(sqlProvider.selectMessagesBlob(messagesTable, ids))) {
-            while (blobRecords.next()) {
-               MessageData messageData = QueryUtil.readMessageData(blobRecords, 1, 2, 3);
-               Message message = DatabaseStorageManager.decodeMessage(messageData);
-               messageList.add(message);
-               deliveryUpdater.updateDelivery(queue.getID(), messageData.messageID);
-               messagesRead++;
-               bytesRead += messageData.memoryEstimate;
-            }
-         }
+         SQLProvider sqlProvider = dataManager.getDatabaseProvider().getSqlProvider();
+         String messagesTable = sqlProvider.getMessages();
 
-         deliveryUpdater.flush();
+         Connection secondaryConnection = null;
+         MessageDeliveryUpdater deliveryUpdater = null;
 
-         if (prefetchMessagesValue > 0 && messagesRead >= prefetchMessagesValue ||
-            prefetchBytesValue > 0 && bytesRead >= prefetchBytesValue) {
-            break;
-         }
-      }
-      
-      if (messagesRead > 0) {
+         ArrayList<Message> messageList = null;
+
          try {
-            deliveryUpdater.commit();
-         } catch (Throwable e) {
-            logger.warn("Commit failed during prefetch for queue {}: {}", queue.getName(), e.getMessage(), e);
-            dataManager.criticalError(e);
-            return;
-         }
-      }
+            while (queue.needsDepage()) {
+               if (borrowedWorker != null && borrowedWorker.needConnectionBack) {
+                  logger.debug("Pool demands connection back, aborting prefetch for queue {}", queue.getName());
+                  break;
+               }
 
-      if (!cursorHasMore) {
-         resultSetExhausted = true;
-         returnBorrowedWorkerNow();
-      } else if (borrowedWorker != null && borrowedWorker.needConnectionBack) {
-         returnBorrowedWorkerNow();
+               ArrayList<String> ids = new ArrayList<>(ID_BATCH_SIZE);
+
+               if (resultSet.isClosed()) {
+                  // DB2 may close the cursor when another statement executes on the same connection.
+                  // Deliver what we have, return the worker, and force a reschedule.
+                  cursorHasMore = false;
+                  reschedule = true;
+                  break;
+               }
+               for (int i = 0; i < ID_BATCH_SIZE; i++) {
+                  if (!resultSet.next()) {
+                     cursorHasMore = false;
+                     break;
+                  }
+                  String id = resultSet.getString(1);
+                  ids.add(id);
+               }
+
+               if (ids.isEmpty()) {
+                  cursorHasMore = false;
+                  break;
+               }
+
+               if (secondaryConnection == null) {
+                  secondaryConnection = dataManager.getDatabaseProvider().getConnection();
+                  secondaryConnection.setAutoCommit(false);
+                  deliveryUpdater = new MessageDeliveryUpdater(dataManager.getDatabaseProvider(), secondaryConnection);
+                  deliveryUpdater.init();
+               }
+
+               try (Statement statement = secondaryConnection.createStatement(); ResultSet blobRecords = statement.executeQuery(sqlProvider.selectMessagesBlob(messagesTable, ids))) {
+                  while (blobRecords.next()) {
+                     MessageData messageData = QueryUtil.readMessageData(blobRecords, 1, 2, 3);
+                     Message message = DatabaseStorageManager.decodeMessage(messageData);
+                     if (messageList == null) {
+                        messageList = new ArrayList<>();
+                     }
+                     messageList.add(message);
+                     messagesRead++;
+                     bytesRead += messageData.memoryEstimate;
+                  }
+               }
+
+               if (messageList != null) {
+                  for (Message message : messageList) {
+                     deliveryUpdater.updateDelivery(queue.getID(), message.getMessageID());
+                  }
+                  deliveryUpdater.flush();
+               }
+
+               if (prefetchMessagesValue > 0 && messagesRead >= prefetchMessagesValue || prefetchBytesValue > 0 && bytesRead >= prefetchBytesValue) {
+                  logger.debug("breaking loop as too much been read");
+                  break;
+               }
+            }
+
+            if (messageList != null) {
+               try {
+                  secondaryConnection.commit();
+                  deliverMessages(messageList);
+               } catch (Throwable e) {
+                  logger.warn("Commit failed during prefetch for queue {}: {}", queue.getName(), e.getMessage(), e);
+                  dataManager.criticalError(e);
+                  return;
+               }
+            }
+
+         } finally {
+            if (secondaryConnection != null) {
+               try {
+                  secondaryConnection.close();
+               } catch (Throwable ignorable) {
+                  // don't really care, it's closing anyway
+               }
+            }
+         }
+
+         if (!cursorHasMore) {
+            resultSetExhausted = true;
+            returnBorrowedWorkerNow();
+         } else if (borrowedWorker != null && borrowedWorker.needConnectionBack) {
+            returnBorrowedWorkerNow();
+         }
+
+      } finally {
+         logger.debug("ReadBatch done");
+         scheduled = false;
+         if (reschedule) {
+            scheduleRead(false);
+         }
       }
    }
 
@@ -289,10 +328,6 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
             logger.debug("Error closing borrowed ResultSet for queue {}: {}", queue.getName(), e.getMessage(), e);
          }
          borrowedResultSet = null;
-      }
-      if (deliveryUpdater != null) {
-         deliveryUpdater.close();
-         deliveryUpdater = null;
       }
       resultSetExhausted = false;
       borrowedWorker = null;
@@ -317,7 +352,7 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
     * On a connection failure: reconnect the worker (so it returns to the pool healthy),
     * then schedule a fresh read that will borrow a new worker.
     */
-   private void reconnectReturnAndReschedule(Throwable cause) {
+   private void reconnectAndRetry(Throwable cause) {
       if (borrowedWorker != null && !borrowedWorker.isReturned()) {
          java.sql.SQLException reconnectError = borrowedWorker.reconnect(cause);
          if (reconnectError != null) {
@@ -332,7 +367,9 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
    private void deliverMessages(List<Message> messageList) {
       for (Message m : messageList) {
          MessageReference reference = new MessageReferenceImpl(m, queue);
-         pagedSize.simpleAdd(-1, reference.getMessage().getMemoryEstimate());
+         if (!addPending(-1, reference.getMessage().getMemoryEstimate() * -1)) {
+            logger.warn("****** pagedDeliveries became negative on messageID {}", m.getMessageID(), new Exception("trace"));
+         }
          queue.refUp(reference);
          queue.durableUp(m);
          queue.addSorted(reference, false);
@@ -348,7 +385,7 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
          return;
       }
       if (pagedSize.getElements() < 0) {
-         logger.warn("StorageReader {} with negative values at {}", queue.getName(), pagedSize.getElements());
+         ActiveMQServerLogger.LOGGER.storageReaderNegativePagedCount(queue.getName().toString(), pagedSize.getElements());
       }
       if (pagedSize.getElements() <= 0) {
          logger.info("nothing to read.. give up");
@@ -377,7 +414,11 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
    }
 
    @Override
-   public int iterateMessages(String operationName, int flushLimit, boolean separatePageIterator, QueueImpl.QueueIterateAction messageAction, int count) throws Exception {
+   public int iterateMessages(String operationName,
+                              int flushLimit,
+                              boolean separatePageIterator,
+                              QueueImpl.QueueIterateAction messageAction,
+                              int count) throws Exception {
       return count;
    }
 
@@ -408,15 +449,18 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
    }
 
    @Override
-   public void addPending(long elements, long size) {
+   public boolean addPending(long elements, long size) {
       pagedSize.simpleAdd(elements, size);
+      if (pagedSize.getElements() < 0) {
+         return false;
+      } else {
+         return true;
+      }
    }
-
 
    protected static class PendingDeliveryUpdate extends TransactionOperationAbstract {
 
       protected HashMap<Queue, SizeAwareMetric> pendingUpdates = new HashMap<>();
-
 
       public void addSize(Queue queue, long elements, long size) {
          SizeAwareMetric updateSizeAware = pendingUpdates.computeIfAbsent(queue, k -> new SizeAwareMetric());
@@ -432,6 +476,5 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
          queue.getStorageMessageReader().addPending(metric.getElements(), metric.getSize());
       }
    }
-
 
 }

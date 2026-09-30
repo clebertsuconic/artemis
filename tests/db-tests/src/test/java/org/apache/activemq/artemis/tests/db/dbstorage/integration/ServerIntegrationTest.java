@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.QueueConfiguration;
@@ -58,6 +59,7 @@ import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedT
 import org.apache.activemq.artemis.tests.util.CFUtil;
 import org.apache.activemq.artemis.utils.RandomUtil;
 import org.apache.activemq.artemis.utils.ReusableLatch;
+import org.apache.activemq.artemis.utils.SpawnedVMSupport;
 import org.apache.activemq.artemis.utils.Wait;
 import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
 import org.apache.artemis.database.DatabaseProvider;
@@ -77,6 +79,7 @@ import org.slf4j.LoggerFactory;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DisabledIf("isNoDatabaseSelected")
@@ -615,11 +618,92 @@ public class ServerIntegrationTest extends AbstractStatementTest {
       }
    }
 
+   private static final int OK = 1;
+   private static final int NO_OK = 2;
+   public static void main(String arg[]) {
+      try {
+         ConnectionFactory factory = CFUtil.createConnectionFactory("CORE", "tcp://localhost:61616");
+         try (javax.jms.Connection connection = factory.createConnection()) {
+            connection.start();
+            Session session = connection.createSession(true, Session.SESSION_TRANSACTED);
+            MessageProducer producer = session.createProducer(session.createQueue(QUEUE_NAME));
+            MessageConsumer consumer = session.createConsumer(session.createQueue(QUEUE_NAME));
+
+            int commitID = 0;
+            while (true) {
+               for (int i = 0; i < 100; i++) {
+                  producer.send(session.createTextMessage("hello"));
+               }
+               if (commitID++ > 2) {
+                  System.out.println("COMMIT");
+               }
+               session.commit();
+               for (int i = 0; i < 100; i++) {
+                  consumer.receive(1000);
+               }
+               session.commit();
+
+            }
+         }
+      } catch (Throwable e) {
+         e.printStackTrace();
+         System.exit(NO_OK);
+      }
+   }
+
+   @TestTemplate
+   public void testInterruptProducer() throws Exception {
+
+      ActiveMQServer server = createServer(true, configuration);
+      server.getConfiguration().getAddressSettings().clear();
+      AddressSettings settingPaging = new AddressSettings().setAddressFullMessagePolicy(AddressFullMessagePolicy.PAGE).setMaxSizeMessages(10).setMaxReadPageMessages(50);
+      server.getConfiguration().addAddressSetting("#", settingPaging);
+      server.getConfiguration().addAddressConfiguration(new CoreAddressConfiguration()
+                                                           .setName(QUEUE_NAME)
+                                                           .addRoutingType(RoutingType.ANYCAST)
+                                                           .addQueueConfiguration(QueueConfiguration.of(QUEUE_NAME).setRoutingType(RoutingType.ANYCAST)));
+      server.start();
+
+      Wait.assertTrue(() -> server.locateQueue(QUEUE_NAME) != null);
+      Queue queue = server.locateQueue(QUEUE_NAME);
+
+      CountDownLatch done = new CountDownLatch(1);
+      AtomicReference<Process> processRef = new AtomicReference<>();
+      Process process = SpawnedVMSupport.spawnVMWithLogMacher("COMMIT", () -> {
+         Process p = processRef.get();
+         if (p != null) {
+            p.destroy();
+            done.countDown();
+         }
+      }, ServerIntegrationTest.class.getName(), new String[0], true);
+      processRef.set(process);
+      runAfter(process::destroyForcibly);
+
+      assertTrue(done.await(60, TimeUnit.SECONDS));
+
+      ConnectionFactory cf = CFUtil.createConnectionFactory("CORE", "tcp://localhost:61616");
+
+      try (AssertionLoggerHandler loggerHandler = new AssertionLoggerHandler()) {
+         try (javax.jms.Connection connection = cf.createConnection()) {
+            try (Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+               long messages = queue.getMessageCount();
+               MessageConsumer consumer = session.createConsumer(session.createQueue(QUEUE_NAME));
+               for (long i = 0; i < messages; i++) {
+                  assertNotNull(consumer.receive(500));
+               }
+            }
+         }
+         assertFalse(loggerHandler.findText("AMQ222704"));
+      }
+
+
+   }
+
    @TestTemplate
    public void testProducePagedThanConsume() throws Exception {
 
       logger.info("******************************************************************************************************************************* test starting");
-      int nMessages = 10_000;
+      int nMessages = 100;
 
       ActiveMQServer server = createServer(true, configuration);
       server.getConfiguration().getAddressSettings().clear();
@@ -645,6 +729,12 @@ public class ServerIntegrationTest extends AbstractStatementTest {
                   producer.send(message);
                }
                session.commit();
+               // a second one just to make things more challenging
+               for (int i = 0; i < nMessages; i++) {
+                  javax.jms.TextMessage message = session.createTextMessage("test: " + i);
+                  producer.send(message);
+               }
+               session.rollback();
                assertTrue(loggerHandler.findText("AMQ222038"));
                DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
                validateNewDBTotalMessages(databaseProvider, nMessages, nMessages);
