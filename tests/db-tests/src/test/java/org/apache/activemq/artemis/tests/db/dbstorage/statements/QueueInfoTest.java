@@ -48,27 +48,29 @@ public class QueueInfoTest extends AbstractStatementTest {
    public void testQueueInfoDirectly() throws Exception {
       DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService, null);
       databaseStorageManager.start();
+      try {
+         JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
 
-      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
+         int nrecords = 50;
 
-      int nrecords = 50;
+         try (Connection connection = connectionProvider.getConnection()) {
+            connection.setAutoCommit(false);
+            for (int i = 0; i < nrecords; i++) {
+               BindingsTransactionImpl tx = new BindingsTransactionImpl(databaseStorageManager);
 
-      try (Connection connection = connectionProvider.getConnection()) {
-         connection.setAutoCommit(false);
-         for (int i = 0; i < nrecords; i++) {
-            BindingsTransactionImpl tx = new BindingsTransactionImpl(databaseStorageManager);
+               databaseStorageManager.getDataManager().storeQueue(tx.getStorageTx(), 1, i + 1, "test" + i, "select from nothing" + i, RoutingType.MULTICAST, null, databaseStorageManager.getContext());
+               databaseStorageManager.commitBindings(tx);
+            }
 
-            databaseStorageManager.getDataManager().storeQueue(tx.getStorageTx(), 1, i + 1, "test" + i, "select from nothing" + i, RoutingType.MULTICAST, null, databaseStorageManager.getContext());
-            databaseStorageManager.commitBindings(tx);
+            CountDownCompletion completion = new CountDownCompletion(1);
+            databaseStorageManager.getContext().executeOnCompletion(completion);
+            assertTrue(completion.await(10, TimeUnit.SECONDS));
+
+            assertEquals(nrecords, selectCount(connection, "DB_QUEUE"));
          }
-
-         CountDownCompletion completion = new CountDownCompletion(1);
-         databaseStorageManager.getContext().executeOnCompletion(completion);
-         assertTrue(completion.await(10, TimeUnit.SECONDS));
-
-         assertEquals(nrecords, selectCount(connection, "DB_QUEUE"));
+      } finally {
+         databaseStorageManager.stop();
       }
-
    }
 
 
@@ -76,30 +78,33 @@ public class QueueInfoTest extends AbstractStatementTest {
    public void testQueueInfoStorageManager() throws Exception {
       DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService, null);
       databaseStorageManager.start();
+      try {
+         JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
 
-      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
+         int nrecords = 50;
 
-      int nrecords = 50;
+         try (Connection connection = connectionProvider.getConnection()) {
+            connection.setAutoCommit(false);
+            for (int i = 0; i < nrecords; i++) {
+               BindingsTransactionImpl tx = new BindingsTransactionImpl(databaseStorageManager);
 
-      try (Connection connection = connectionProvider.getConnection()) {
-         connection.setAutoCommit(false);
-         for (int i = 0; i < nrecords; i++) {
-            BindingsTransactionImpl tx = new BindingsTransactionImpl(databaseStorageManager);
+               databaseStorageManager.getDataManager().storeQueue(tx.getStorageTx(), 1, i + 1, "test" + i, "select from nothing" + i, RoutingType.ANYCAST, null, databaseStorageManager.getContext());
+               databaseStorageManager.commitBindings(tx);
+            }
+            CountDownCompletion completion = new CountDownCompletion(1);
+            databaseStorageManager.getContext().executeOnCompletion(completion);
+            assertTrue(completion.await(10, TimeUnit.SECONDS));
 
-            databaseStorageManager.getDataManager().storeQueue(tx.getStorageTx(), 1, i + 1, "test" + i, "select from nothing" + i, RoutingType.ANYCAST, null, databaseStorageManager.getContext());
-            databaseStorageManager.commitBindings(tx);
+            QueueJDBCQuery query = new QueueJDBCQuery(storageConfiguration.getDatabaseProvider(), connection);
+            ArrayList<QueueData> queueData = new ArrayList<>();
+            query.query(queueData::add);
+            assertEquals(nrecords, queueData.size());
+            queueData.forEach(d -> {
+               assertEquals(RoutingType.ANYCAST, d.toQueueConfiguration().getRoutingType());
+            });
          }
-         CountDownCompletion completion = new CountDownCompletion(1);
-         databaseStorageManager.getContext().executeOnCompletion(completion);
-         assertTrue(completion.await(10, TimeUnit.SECONDS));
-
-         QueueJDBCQuery query = new QueueJDBCQuery(storageConfiguration.getDatabaseProvider(), connection);
-         ArrayList<QueueData> queueData = new ArrayList<>();
-         query.query(queueData::add);
-         assertEquals(nrecords, queueData.size());
-         queueData.forEach(d -> {
-            assertEquals(RoutingType.ANYCAST, d.toQueueConfiguration().getRoutingType());
-         });
+      } finally {
+         databaseStorageManager.stop();
       }
    }
 

@@ -47,29 +47,31 @@ public class AddressInfoTest extends AbstractStatementTest {
    public void testAddressInfoDirectly() throws Exception {
       DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService, null);
       databaseStorageManager.start();
+      try {
+         JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
 
-      JDBCConnectionProvider connectionProvider = storageConfiguration.getConnectionProvider();
+         int nrecords = 5;
 
-      int nrecords = 5;
+         try (Connection connection = connectionProvider.getConnection()) {
+            connection.setAutoCommit(false);
+            for (int i = 0; i < nrecords; i++) {
+               AddressInfo info = new AddressInfo("Orders" + i);
+               info.addRoutingType(RoutingType.ANYCAST);
+               info.addRoutingType(RoutingType.MULTICAST);
+               Transaction tx = new TransactionImpl(databaseStorageManager);
 
-      try (Connection connection = connectionProvider.getConnection()) {
-         connection.setAutoCommit(false);
-         for (int i = 0; i < nrecords; i++) {
-            AddressInfo info = new AddressInfo("Orders" + i);
-            info.addRoutingType(RoutingType.ANYCAST);
-            info.addRoutingType(RoutingType.MULTICAST);
-            Transaction tx = new TransactionImpl(databaseStorageManager);
+               databaseStorageManager.addAddressBinding(tx, info);
+               databaseStorageManager.commit(tx, true);
+            }
 
-            databaseStorageManager.addAddressBinding(tx, info);
-            databaseStorageManager.commit(tx, true);
+            CountDownCompletion completion = new CountDownCompletion(1);
+            databaseStorageManager.getContext().executeOnCompletion(completion);
+            assertTrue(completion.await(10, TimeUnit.SECONDS));
+
+            assertEquals(nrecords, selectCount(connection, "DB_ADDRESS"));
          }
-
-         CountDownCompletion completion = new CountDownCompletion(1);
-         databaseStorageManager.getContext().executeOnCompletion(completion);
-         assertTrue(completion.await(10, TimeUnit.SECONDS));
-
-         assertEquals(nrecords, selectCount(connection, "DB_ADDRESS"));
+      } finally {
+         databaseStorageManager.stop();
       }
-
    }
 }

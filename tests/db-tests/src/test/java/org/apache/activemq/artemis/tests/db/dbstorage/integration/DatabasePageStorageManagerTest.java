@@ -59,28 +59,31 @@ public class DatabasePageStorageManagerTest extends AbstractStatementTest {
                                                                                  executorService,
                                                                                  null);
       databaseStorageManager.start();
+      try {
+         DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
 
-      DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
+         long addressID = 1;
+         long pageID = 1;
+         int nrecords = 100;
 
-      long addressID = 1;
-      long pageID = 1;
-      int nrecords = 100;
+         DatabasePage page = new DatabasePage(SimpleString.of("testAddress"), databaseStorageManager, pageID, addressID, databaseStorageManager.getDataManager());
+         page.open(true);
 
-      DatabasePage page = new DatabasePage(SimpleString.of("testAddress"), databaseStorageManager, pageID, addressID, databaseStorageManager.getDataManager());
-      page.open(true);
+         for (int i = 0; i < nrecords; i++) {
+            CoreMessage message = new CoreMessage().initBuffer(1024).setDurable(true);
+            message.setMessageID(i + 1);
+            message.getBodyBuffer().writeByte((byte) 'Z');
+            PagedMessageImpl pagedMessage = new PagedMessageImpl(message, new long[]{1});
+            page.writeDirect(pagedMessage);
+         }
 
-      for (int i = 0; i < nrecords; i++) {
-         CoreMessage message = new CoreMessage().initBuffer(1024).setDurable(true);
-         message.setMessageID(i + 1);
-         message.getBodyBuffer().writeByte((byte) 'Z');
-         PagedMessageImpl pagedMessage = new PagedMessageImpl(message, new long[]{1});
-         page.writeDirect(pagedMessage);
-      }
+         assertTrue(OperationContextImpl.getContext().waitCompletion(5000));
 
-      assertTrue(OperationContextImpl.getContext().waitCompletion(5000));
-
-      try (Connection connection = databaseProvider.getConnection()) {
-         assertEquals(nrecords, selectCount(connection, databaseProvider.getSqlProvider().getPage()));
+         try (Connection connection = databaseProvider.getConnection()) {
+            assertEquals(nrecords, selectCount(connection, databaseProvider.getSqlProvider().getPage()));
+         }
+      } finally {
+         databaseStorageManager.stop();
       }
    }
 
@@ -94,43 +97,46 @@ public class DatabasePageStorageManagerTest extends AbstractStatementTest {
                                                                                  executorService,
                                                                                  null);
       databaseStorageManager.start();
+      try {
+         DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
 
-      DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
+         long addressID = 1;
+         int nrecordsPerPage = 50;
 
-      long addressID = 1;
-      int nrecordsPerPage = 50;
+         DatabasePage pageToDelete = null;
 
-      DatabasePage pageToDelete = null;
-
-      for (int pageID = 1; pageID <= 2; pageID++) {
-         DatabasePage page = new DatabasePage(SimpleString.of("testAddress"), databaseStorageManager, pageID, addressID, databaseStorageManager.getDataManager());
-         page.open(true);
-         if (pageToDelete == null) {
-            pageToDelete = page;
+         for (int pageID = 1; pageID <= 2; pageID++) {
+            DatabasePage page = new DatabasePage(SimpleString.of("testAddress"), databaseStorageManager, pageID, addressID, databaseStorageManager.getDataManager());
+            page.open(true);
+            if (pageToDelete == null) {
+               pageToDelete = page;
+            }
+            for (int i = 0; i < nrecordsPerPage; i++) {
+               CoreMessage message = new CoreMessage().initBuffer(1024).setDurable(true);
+               message.setMessageID(pageID * 1000 + i + 1);
+               message.getBodyBuffer().writeByte((byte) 'Z');
+               PagedMessageImpl pagedMessage = new PagedMessageImpl(message, new long[]{1});
+               page.writeDirect(pagedMessage);
+            }
          }
-         for (int i = 0; i < nrecordsPerPage; i++) {
-            CoreMessage message = new CoreMessage().initBuffer(1024).setDurable(true);
-            message.setMessageID(pageID * 1000 + i + 1);
-            message.getBodyBuffer().writeByte((byte) 'Z');
-            PagedMessageImpl pagedMessage = new PagedMessageImpl(message, new long[]{1});
-            page.writeDirect(pagedMessage);
+
+         assertTrue(OperationContextImpl.getContext().waitCompletion(5000));
+
+         try (Connection connection = databaseProvider.getConnection()) {
+            assertEquals(nrecordsPerPage * 2, selectCount(connection, databaseProvider.getSqlProvider().getPage()));
+            assertEquals(nrecordsPerPage * 2, selectCount(connection, databaseProvider.getSqlProvider().getPageRefs()));
          }
-      }
 
-      assertTrue(OperationContextImpl.getContext().waitCompletion(5000));
+         pageToDelete.delete(null);
 
-      try (Connection connection = databaseProvider.getConnection()) {
-         assertEquals(nrecordsPerPage * 2, selectCount(connection, databaseProvider.getSqlProvider().getPage()));
-         assertEquals(nrecordsPerPage * 2, selectCount(connection, databaseProvider.getSqlProvider().getPageRefs()));
-      }
+         assertTrue(OperationContextImpl.getContext().waitCompletion(5000));
 
-      pageToDelete.delete(null);
-
-      assertTrue(OperationContextImpl.getContext().waitCompletion(5000));
-
-      try (Connection connection = databaseProvider.getConnection()) {
-         assertEquals(nrecordsPerPage, selectCount(connection, databaseProvider.getSqlProvider().getPage()));
-         assertEquals(nrecordsPerPage, selectCount(connection, databaseProvider.getSqlProvider().getPageRefs()));
+         try (Connection connection = databaseProvider.getConnection()) {
+            assertEquals(nrecordsPerPage, selectCount(connection, databaseProvider.getSqlProvider().getPage()));
+            assertEquals(nrecordsPerPage, selectCount(connection, databaseProvider.getSqlProvider().getPageRefs()));
+         }
+      } finally {
+         databaseStorageManager.stop();
       }
    }
 }

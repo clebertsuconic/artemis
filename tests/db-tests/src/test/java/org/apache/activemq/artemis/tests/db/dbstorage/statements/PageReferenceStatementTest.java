@@ -55,26 +55,29 @@ public class PageReferenceStatementTest extends AbstractStatementTest {
                                                                                  executorService,
                                                                                  null);
       databaseStorageManager.start();
+      try {
+         DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
 
-      DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
+         int nrecords = 100;
 
-      int nrecords = 100;
+         CountDownCompletion latch = new CountDownCompletion(nrecords);
 
-      CountDownCompletion latch = new CountDownCompletion(nrecords);
+         try (Connection connection = databaseProvider.getConnection()) {
+            connection.setAutoCommit(false);
+            InsertPageRefStatement insertPageRefStatement = new InsertPageRefStatement(databaseProvider, connection, nrecords);
+            for (int i = 1; i <= nrecords; i++) {
+               PageRefData task = new PageRefData(1, 1, i, 1, latch);
+               insertPageRefStatement.addElement(task, latch);
+            }
+            insertPageRefStatement.flushPending(true);
 
-      try (Connection connection = databaseProvider.getConnection()) {
-         connection.setAutoCommit(false);
-         InsertPageRefStatement insertPageRefStatement = new InsertPageRefStatement(databaseProvider, connection, nrecords);
-         for (int i = 1; i <= nrecords; i++) {
-            PageRefData task = new PageRefData(1, 1, i, 1, latch);
-            insertPageRefStatement.addElement(task, latch);
+            assertEquals(nrecords, selectCount(connection, "DB_PAGE_REFERENCES"));
          }
-         insertPageRefStatement.flushPending(true);
 
-         assertEquals(nrecords, selectCount(connection, "DB_PAGE_REFERENCES"));
+         assertTrue(latch.await(10, TimeUnit.SECONDS));
+      } finally {
+         databaseStorageManager.stop();
       }
-
-      assertTrue(latch.await(10, TimeUnit.SECONDS));
    }
 
    @TestTemplate
@@ -87,37 +90,40 @@ public class PageReferenceStatementTest extends AbstractStatementTest {
                                                                                  executorService,
                                                                                  null);
       databaseStorageManager.start();
+      try {
+         DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
 
-      DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
+         int nrecords = 50;
 
-      int nrecords = 50;
+         CountDownCompletion insertLatch = new CountDownCompletion(nrecords);
 
-      CountDownCompletion insertLatch = new CountDownCompletion(nrecords);
+         try (Connection connection = databaseProvider.getConnection()) {
+            connection.setAutoCommit(false);
+            InsertPageRefStatement insertPageRefStatement = new InsertPageRefStatement(databaseProvider, connection, nrecords);
+            for (int i = 1; i <= nrecords; i++) {
+               PageRefData task = new PageRefData(1, 1, i, 1, insertLatch);
+               insertPageRefStatement.addElement(task, insertLatch);
+            }
+            insertPageRefStatement.flushPending(true);
 
-      try (Connection connection = databaseProvider.getConnection()) {
-         connection.setAutoCommit(false);
-         InsertPageRefStatement insertPageRefStatement = new InsertPageRefStatement(databaseProvider, connection, nrecords);
-         for (int i = 1; i <= nrecords; i++) {
-            PageRefData task = new PageRefData(1, 1, i, 1, insertLatch);
-            insertPageRefStatement.addElement(task, insertLatch);
+            assertEquals(nrecords, selectCount(connection, "DB_PAGE_REFERENCES"));
+
+            int recordsToDelete = 20;
+            CountDownCompletion deleteLatch = new CountDownCompletion(recordsToDelete);
+            DeletePageRefStatement deletePageRefStatement = new DeletePageRefStatement(databaseProvider, connection, recordsToDelete);
+            for (int i = 1; i <= recordsToDelete; i++) {
+               DeletePageRefData task = new DeletePageRefData(1, 1, i, 1, deleteLatch);
+               deletePageRefStatement.addElement(task, deleteLatch);
+            }
+            deletePageRefStatement.flushPending(true);
+
+            assertEquals(nrecords - recordsToDelete, selectCount(connection, "DB_PAGE_REFERENCES"));
          }
-         insertPageRefStatement.flushPending(true);
 
-         assertEquals(nrecords, selectCount(connection, "DB_PAGE_REFERENCES"));
-
-         int recordsToDelete = 20;
-         CountDownCompletion deleteLatch = new CountDownCompletion(recordsToDelete);
-         DeletePageRefStatement deletePageRefStatement = new DeletePageRefStatement(databaseProvider, connection, recordsToDelete);
-         for (int i = 1; i <= recordsToDelete; i++) {
-            DeletePageRefData task = new DeletePageRefData(1, 1, i, 1, deleteLatch);
-            deletePageRefStatement.addElement(task, deleteLatch);
-         }
-         deletePageRefStatement.flushPending(true);
-
-         assertEquals(nrecords - recordsToDelete, selectCount(connection, "DB_PAGE_REFERENCES"));
+         assertTrue(insertLatch.await(10, TimeUnit.SECONDS));
+      } finally {
+         databaseStorageManager.stop();
       }
-
-      assertTrue(insertLatch.await(10, TimeUnit.SECONDS));
    }
 
    @TestTemplate
@@ -130,35 +136,38 @@ public class PageReferenceStatementTest extends AbstractStatementTest {
                                                                                  executorService,
                                                                                  null);
       databaseStorageManager.start();
+      try {
+         DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
 
-      DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
+         int nrecords = 50;
 
-      int nrecords = 50;
+         CountDownCompletion insertLatch = new CountDownCompletion(nrecords);
 
-      CountDownCompletion insertLatch = new CountDownCompletion(nrecords);
+         try (Connection connection = databaseProvider.getConnection()) {
+            connection.setAutoCommit(false);
+            InsertPageRefStatement insertPageRefStatement = new InsertPageRefStatement(databaseProvider, connection, nrecords);
+            for (int i = 1; i <= nrecords; i++) {
+               // Half on page 1, half on page 2 across different queue IDs
+               long pageID = (i <= 25) ? 1 : 2;
+               PageRefData task = new PageRefData(1, pageID, i, i % 3, insertLatch);
+               insertPageRefStatement.addElement(task, insertLatch);
+            }
+            insertPageRefStatement.flushPending(true);
 
-      try (Connection connection = databaseProvider.getConnection()) {
-         connection.setAutoCommit(false);
-         InsertPageRefStatement insertPageRefStatement = new InsertPageRefStatement(databaseProvider, connection, nrecords);
-         for (int i = 1; i <= nrecords; i++) {
-            // Half on page 1, half on page 2 across different queue IDs
-            long pageID = (i <= 25) ? 1 : 2;
-            PageRefData task = new PageRefData(1, pageID, i, i % 3, insertLatch);
-            insertPageRefStatement.addElement(task, insertLatch);
+            assertEquals(nrecords, selectCount(connection, "DB_PAGE_REFERENCES"));
+
+            CountDownCompletion deleteLatch = new CountDownCompletion(1);
+            DeleteAllPageRefStatement deleteAllPageRefStatement = new DeleteAllPageRefStatement(databaseProvider, connection, 1);
+            deleteAllPageRefStatement.addElement(new DeleteAllPageRefData(1, 1, deleteLatch), deleteLatch);
+            deleteAllPageRefStatement.flushPending(true);
+
+            // All 25 references for page 1 should be gone, leaving 25 references for page 2
+            assertEquals(25, selectCount(connection, "DB_PAGE_REFERENCES"));
          }
-         insertPageRefStatement.flushPending(true);
 
-         assertEquals(nrecords, selectCount(connection, "DB_PAGE_REFERENCES"));
-
-         CountDownCompletion deleteLatch = new CountDownCompletion(1);
-         DeleteAllPageRefStatement deleteAllPageRefStatement = new DeleteAllPageRefStatement(databaseProvider, connection, 1);
-         deleteAllPageRefStatement.addElement(new DeleteAllPageRefData(1, 1, deleteLatch), deleteLatch);
-         deleteAllPageRefStatement.flushPending(true);
-
-         // All 25 references for page 1 should be gone, leaving 25 references for page 2
-         assertEquals(25, selectCount(connection, "DB_PAGE_REFERENCES"));
+         assertTrue(insertLatch.await(10, TimeUnit.SECONDS));
+      } finally {
+         databaseStorageManager.stop();
       }
-
-      assertTrue(insertLatch.await(10, TimeUnit.SECONDS));
    }
 }

@@ -49,6 +49,9 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
 
    private String jdbcDriverClassName = ActiveMQDefaultConfiguration.getDefaultDriverClassName();
 
+   // mark that we created the datasource and it wasn't provided to us
+   private boolean dataSourceCreated;
+
    private DataSource dataSource;
 
    private String dataSourceClassName = ActiveMQDefaultConfiguration.getDefaultDataSourceClassName();
@@ -297,6 +300,7 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
             }
          }
          dataSource = JDBCDataSourceUtils.getDataSource(dataSourceClassName, dataSourceProperties);
+         dataSourceCreated = true;
       }
       return dataSource;
    }
@@ -432,6 +436,16 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
    @Override
    public int getAllowedPageSize(int pageSize) {
       return Math.min(pageSize, maxPageSizeBytes);
+   }
+
+   public void checkDatasource() throws Exception {
+      if (dataSourceCreated && dataSource instanceof AutoCloseable) {
+         ((AutoCloseable) dataSource).close();
+      }
+      dataSourceCreated = false;
+      dataSource = null;
+      databaseProvider = null;
+      connectionProvider = null;
    }
 
 }

@@ -63,80 +63,83 @@ public class OperationCompletionTest extends AbstractStatementTest {
                                                                                  executorService,
                                                                                  null);
       databaseStorageManager.start();
+      try {
+         DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
 
-      DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
+         Connection connection = databaseProvider.getConnection();
+         runAfter(connection::close);
 
-      Connection connection = databaseProvider.getConnection();
-      runAfter(connection::close);
+         OperationContext context = databaseStorageManager.getContext();
+         runAfter(OperationContextImpl::clearContext);
 
-      OperationContext context = databaseStorageManager.getContext();
-      runAfter(OperationContextImpl::clearContext);
+         long messageID = 1;
+         long queueID = 1;
 
-      long messageID = 1;
-      long queueID = 1;
+         // Step 1: Store a message + reference transactionally
+         CoreMessage message = new CoreMessage().initBuffer(1024).setDurable(true);
+         message.setMessageID(messageID);
+         message.getBodyBuffer().writeByte((byte) 'Z');
 
-      // Step 1: Store a message + reference transactionally
-      CoreMessage message = new CoreMessage().initBuffer(1024).setDurable(true);
-      message.setMessageID(messageID);
-      message.getBodyBuffer().writeByte((byte) 'Z');
+         TransactionImpl storeTx = new TransactionImpl(databaseStorageManager);
+         databaseStorageManager.storeMessageTransactional(storeTx, message);
+         databaseStorageManager.storeReferenceTransactional(storeTx, queueID, messageID, false);
+         databaseStorageManager.commit(storeTx);
 
-      TransactionImpl storeTx = new TransactionImpl(databaseStorageManager);
-      databaseStorageManager.storeMessageTransactional(storeTx, message);
-      databaseStorageManager.storeReferenceTransactional(storeTx, queueID, messageID, false);
-      databaseStorageManager.commit(storeTx);
+         assertTrue(context.waitCompletion(5000));
 
-      assertTrue(context.waitCompletion(5000));
+         assertEquals(1, selectCount(connection, databaseProvider.getSqlProvider().getMessages()));
+         assertEquals(1, selectCount(connection, databaseProvider.getSqlProvider().getRefs()));
 
-      assertEquals(1, selectCount(connection, databaseProvider.getSqlProvider().getMessages()));
-      assertEquals(1, selectCount(connection, databaseProvider.getSqlProvider().getRefs()));
+         // Step 2: Pause auto-flush so we can prove the callback is deferred until JDBC commit
+         DataManager dataManager = databaseStorageManager.getDataManager();
+         dataManager.setPeriod(1, TimeUnit.HOURS);
 
-      // Step 2: Pause auto-flush so we can prove the callback is deferred until JDBC commit
-      DataManager dataManager = databaseStorageManager.getDataManager();
-      dataManager.setPeriod(1, TimeUnit.HOURS);
+         TransactionImpl ackTx = new TransactionImpl(databaseStorageManager);
+         ackTx.setContainsPersistent();
+         databaseStorageManager.storeAcknowledgeTransactional(ackTx, queueID, messageID);
 
-      TransactionImpl ackTx = new TransactionImpl(databaseStorageManager);
-      ackTx.setContainsPersistent();
-      databaseStorageManager.storeAcknowledgeTransactional(ackTx, queueID, messageID);
+         CountDownLatch afterCommitLatch = new CountDownLatch(1);
+         AtomicBoolean refsDeletedBeforeMessageDelete = new AtomicBoolean(false);
 
-      CountDownLatch afterCommitLatch = new CountDownLatch(1);
-      AtomicBoolean refsDeletedBeforeMessageDelete = new AtomicBoolean(false);
-
-      ackTx.addOperation(new TransactionOperationAbstract() {
-         @Override
-         public void afterCommit(org.apache.activemq.artemis.core.transaction.Transaction tx) {
-            try {
-               int refCount = selectCount(connection, databaseProvider.getSqlProvider().getRefs());
-               refsDeletedBeforeMessageDelete.set(refCount == 0);
-               databaseStorageManager.deleteMessage(messageID);
-            } catch (Exception e) {
-               logger.warn(e.getMessage(), e);
-            } finally {
-               afterCommitLatch.countDown();
+         ackTx.addOperation(new TransactionOperationAbstract() {
+            @Override
+            public void afterCommit(org.apache.activemq.artemis.core.transaction.Transaction tx) {
+               try {
+                  int refCount = selectCount(connection, databaseProvider.getSqlProvider().getRefs());
+                  refsDeletedBeforeMessageDelete.set(refCount == 0);
+                  databaseStorageManager.deleteMessage(messageID);
+               } catch (Exception e) {
+                  logger.warn(e.getMessage(), e);
+               } finally {
+                  afterCommitLatch.countDown();
+               }
             }
-         }
-      });
+         });
 
-      // ackTx.commit() queues the ref DELETE into DataManager but does NOT flush yet
-      ackTx.commit();
+         // ackTx.commit() queues the ref DELETE into DataManager but does NOT flush yet
+         ackTx.commit();
 
-      // Prove the callback has NOT fired — the data is queued but no JDBC commit happened
-      assertFalse(afterCommitLatch.await(500, TimeUnit.MILLISECONDS),
-         "afterCommit should NOT fire before the DataManager flushes");
-      assertEquals(1, selectCount(connection, databaseProvider.getSqlProvider().getRefs()),
-         "Refs should still be in DB before flush");
+         // Prove the callback has NOT fired — the data is queued but no JDBC commit happened
+         assertFalse(afterCommitLatch.await(500, TimeUnit.MILLISECONDS),
+            "afterCommit should NOT fire before the DataManager flushes");
+         assertEquals(1, selectCount(connection, databaseProvider.getSqlProvider().getRefs()),
+            "Refs should still be in DB before flush");
 
-      // Now trigger the flush manually — this runs the DataWorker: execute statements → JDBC commit → completeIO → afterCommit fires
-      dataManager.setPeriod(10, TimeUnit.MILLISECONDS);
-      dataManager.delay();
+         // Now trigger the flush manually — this runs the DataWorker: execute statements → JDBC commit → completeIO → afterCommit fires
+         dataManager.setPeriod(10, TimeUnit.MILLISECONDS);
+         dataManager.delay();
 
-      assertTrue(afterCommitLatch.await(10, TimeUnit.SECONDS),
-         "afterCommit should fire after DataManager flush");
-      assertTrue(refsDeletedBeforeMessageDelete.get(),
-         "References should be deleted from DB before afterCommit fires");
+         assertTrue(afterCommitLatch.await(10, TimeUnit.SECONDS),
+            "afterCommit should fire after DataManager flush");
+         assertTrue(refsDeletedBeforeMessageDelete.get(),
+            "References should be deleted from DB before afterCommit fires");
 
-      // Wait for deleteMessage to complete in the next flush cycle
-      Wait.assertEquals(0, () -> selectCount(connection, databaseProvider.getSqlProvider().getMessages()), 5000, 100);
-      assertEquals(0, selectCount(connection, databaseProvider.getSqlProvider().getRefs()));
+         // Wait for deleteMessage to complete in the next flush cycle
+         Wait.assertEquals(0, () -> selectCount(connection, databaseProvider.getSqlProvider().getMessages()), 5000, 100);
+         assertEquals(0, selectCount(connection, databaseProvider.getSqlProvider().getRefs()));
+      } finally {
+         databaseStorageManager.stop();
+      }
    }
 
    @TestTemplate
@@ -149,49 +152,51 @@ public class OperationCompletionTest extends AbstractStatementTest {
                                                                                  executorService,
                                                                                  null);
       databaseStorageManager.start();
-      runAfter(databaseStorageManager::stop);
+      try {
+         DataManager dataManager = databaseStorageManager.getDataManager();
+         dataManager.setPeriod(1, TimeUnit.HOURS);
 
-      DataManager dataManager = databaseStorageManager.getDataManager();
-      dataManager.setPeriod(1, TimeUnit.HOURS);
+         OperationContextImpl workingCtx = new OperationContextImpl(Runnable::run);
+         OperationContextImpl freeCtx = new OperationContextImpl(Runnable::run);
 
-      OperationContextImpl workingCtx = new OperationContextImpl(Runnable::run);
-      OperationContextImpl freeCtx = new OperationContextImpl(Runnable::run);
+         DBData workingData1 = new DeleteMessageData(1, workingCtx);
+         DBData workingData2 = new DeleteMessageData(2, workingCtx);
+         DBData freeData = new DeleteMessageData(3, freeCtx);
+         DBData nullCtxData = new DeleteMessageData(4, null);
 
-      DBData workingData1 = new DeleteMessageData(1, workingCtx);
-      DBData workingData2 = new DeleteMessageData(2, workingCtx);
-      DBData freeData = new DeleteMessageData(3, freeCtx);
-      DBData nullCtxData = new DeleteMessageData(4, null);
+         ArrayList<DBData> pendingData = DataManagerAccessor.getPendingData(dataManager);
 
-      ArrayList<DBData> pendingData = DataManagerAccessor.getPendingData(dataManager);
+         pendingData.add(workingData1);
+         pendingData.add(freeData);
+         pendingData.add(workingData2);
+         pendingData.add(nullCtxData);
 
-      pendingData.add(workingData1);
-      pendingData.add(freeData);
-      pendingData.add(workingData2);
-      pendingData.add(nullCtxData);
+         workingCtx.workUp();
+         assertTrue(workingCtx.isWorking());
+         assertFalse(freeCtx.isWorking());
 
-      workingCtx.workUp();
-      assertTrue(workingCtx.isWorking());
-      assertFalse(freeCtx.isWorking());
+         List<DBData> extracted = DataManagerAccessor.extractTaskList(dataManager);
 
-      List<DBData> extracted = DataManagerAccessor.extractTaskList(dataManager);
+         assertEquals(2, extracted.size());
+         assertTrue(extracted.contains(freeData));
+         assertTrue(extracted.contains(nullCtxData));
+         assertFalse(extracted.contains(workingData1));
+         assertFalse(extracted.contains(workingData2));
 
-      assertEquals(2, extracted.size());
-      assertTrue(extracted.contains(freeData));
-      assertTrue(extracted.contains(nullCtxData));
-      assertFalse(extracted.contains(workingData1));
-      assertFalse(extracted.contains(workingData2));
+         assertEquals(2, pendingData.size());
+         assertTrue(pendingData.contains(workingData1));
+         assertTrue(pendingData.contains(workingData2));
 
-      assertEquals(2, pendingData.size());
-      assertTrue(pendingData.contains(workingData1));
-      assertTrue(pendingData.contains(workingData2));
+         workingCtx.workDone();
+         assertFalse(workingCtx.isWorking());
 
-      workingCtx.workDone();
-      assertFalse(workingCtx.isWorking());
-
-      List<DBData> extracted2 = DataManagerAccessor.extractTaskList(dataManager);
-      assertEquals(2, extracted2.size());
-      assertTrue(extracted2.contains(workingData1));
-      assertTrue(extracted2.contains(workingData2));
-      assertEquals(0, pendingData.size());
+         List<DBData> extracted2 = DataManagerAccessor.extractTaskList(dataManager);
+         assertEquals(2, extracted2.size());
+         assertTrue(extracted2.contains(workingData1));
+         assertTrue(extracted2.contains(workingData2));
+         assertEquals(0, pendingData.size());
+      } finally {
+         databaseStorageManager.stop();
+      }
    }
 }

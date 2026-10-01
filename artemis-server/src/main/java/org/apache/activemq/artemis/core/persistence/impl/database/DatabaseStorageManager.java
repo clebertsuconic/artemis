@@ -179,11 +179,19 @@ public class DatabaseStorageManager extends AbstractStorageManager {
    }
 
    @Override
+   public void stop() throws Exception {
+      super.stop();
+      stop(false, true);
+   }
+
+   @Override
    public synchronized void stop(boolean ioCriticalError, boolean sendFailover) throws Exception {
+      logger.info("Stopping", new Exception());
       idGenerator.stop();
       dataManager.flush();
       waitOnOperations();
       dataManager.close();
+      databaseConfiguration.checkDatasource();
       super.stop(ioCriticalError, sendFailover);
    }
 
@@ -214,7 +222,6 @@ public class DatabaseStorageManager extends AbstractStorageManager {
    }
 
    public JournalLoadInformation[] loadInternalOnly() throws Exception {
-      // TBD
       return null;
    }
 

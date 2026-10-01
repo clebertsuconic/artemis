@@ -57,29 +57,32 @@ public class PageDataStatementTest extends AbstractStatementTest {
                                                                                  executorService,
                                                                                  null);
       databaseStorageManager.start();
+      try {
+         DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
 
-      DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
+         int nrecords = 100;
 
-      int nrecords = 100;
+         CountDownCompletion latch = new CountDownCompletion(nrecords);
 
-      CountDownCompletion latch = new CountDownCompletion(nrecords);
+         try (Connection connection = databaseProvider.getConnection()) {
+            connection.setAutoCommit(false);
+            InsertPageStatement insertPageStatement = new InsertPageStatement(databaseProvider, connection, nrecords);
+            for (int i = 1; i <= nrecords; i++) {
+               CoreMessage message = new CoreMessage().initBuffer(1024).setDurable(true);
+               message.setMessageID(i);
+               message.getBodyBuffer().writeByte((byte) 'Z');
+               PageData task = new PageData(1, 1, i, message.getMessageID(), () -> encodeMessage(message), null, latch);
+               insertPageStatement.addElement(task, latch);
+            }
+            insertPageStatement.flushPending(true);
 
-      try (Connection connection = databaseProvider.getConnection()) {
-         connection.setAutoCommit(false);
-         InsertPageStatement insertPageStatement = new InsertPageStatement(databaseProvider, connection, nrecords);
-         for (int i = 1; i <= nrecords; i++) {
-            CoreMessage message = new CoreMessage().initBuffer(1024).setDurable(true);
-            message.setMessageID(i);
-            message.getBodyBuffer().writeByte((byte) 'Z');
-            PageData task = new PageData(1, 1, i, message.getMessageID(), () -> encodeMessage(message), null, latch);
-            insertPageStatement.addElement(task, latch);
+            assertEquals(nrecords, selectCount(connection, "DB_PAGE"));
          }
-         insertPageStatement.flushPending(true);
 
-         assertEquals(nrecords, selectCount(connection, "DB_PAGE"));
+         assertTrue(latch.await(10, TimeUnit.SECONDS));
+      } finally {
+         databaseStorageManager.stop();
       }
-
-      assertTrue(latch.await(10, TimeUnit.SECONDS));
    }
 
    @TestTemplate
@@ -92,39 +95,42 @@ public class PageDataStatementTest extends AbstractStatementTest {
                                                                                  executorService,
                                                                                  null);
       databaseStorageManager.start();
+      try {
+         DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
 
-      DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
+         int nrecords = 50;
+         int nPages = 2;
 
-      int nrecords = 50;
-      int nPages = 2;
+         CountDownCompletion insertLatch = new CountDownCompletion(nrecords * nPages);
 
-      CountDownCompletion insertLatch = new CountDownCompletion(nrecords * nPages);
-
-      try (Connection connection = databaseProvider.getConnection()) {
-         connection.setAutoCommit(false);
-         InsertPageStatement insertPageStatement = new InsertPageStatement(databaseProvider, connection, nrecords * nPages);
-         for (int page = 1; page <= nPages; page++) {
-            for (int i = 1; i <= nrecords; i++) {
-               CoreMessage message = new CoreMessage().initBuffer(1024).setDurable(true);
-               message.setMessageID(page * 1000 + i);
-               message.getBodyBuffer().writeByte((byte) 'Z');
-               PageData task = new PageData(1, page, i, message.getMessageID(), () -> encodeMessage(message), null, insertLatch);
-               insertPageStatement.addElement(task, insertLatch);
+         try (Connection connection = databaseProvider.getConnection()) {
+            connection.setAutoCommit(false);
+            InsertPageStatement insertPageStatement = new InsertPageStatement(databaseProvider, connection, nrecords * nPages);
+            for (int page = 1; page <= nPages; page++) {
+               for (int i = 1; i <= nrecords; i++) {
+                  CoreMessage message = new CoreMessage().initBuffer(1024).setDurable(true);
+                  message.setMessageID(page * 1000 + i);
+                  message.getBodyBuffer().writeByte((byte) 'Z');
+                  PageData task = new PageData(1, page, i, message.getMessageID(), () -> encodeMessage(message), null, insertLatch);
+                  insertPageStatement.addElement(task, insertLatch);
+               }
             }
+            insertPageStatement.flushPending(true);
+
+            assertEquals(nrecords * nPages, selectCount(connection, "DB_PAGE"));
+
+            CountDownCompletion deleteLatch = new CountDownCompletion(1);
+            DeletePageStatement deletePageStatement = new DeletePageStatement(databaseProvider, connection, 1);
+            deletePageStatement.addElement(new DeletePageData(1, 1, deleteLatch), deleteLatch);
+            deletePageStatement.flushPending(true);
+
+            assertEquals(nrecords, selectCount(connection, "DB_PAGE"));
          }
-         insertPageStatement.flushPending(true);
 
-         assertEquals(nrecords * nPages, selectCount(connection, "DB_PAGE"));
-
-         CountDownCompletion deleteLatch = new CountDownCompletion(1);
-         DeletePageStatement deletePageStatement = new DeletePageStatement(databaseProvider, connection, 1);
-         deletePageStatement.addElement(new DeletePageData(1, 1, deleteLatch), deleteLatch);
-         deletePageStatement.flushPending(true);
-
-         assertEquals(nrecords, selectCount(connection, "DB_PAGE"));
+         assertTrue(insertLatch.await(10, TimeUnit.SECONDS));
+      } finally {
+         databaseStorageManager.stop();
       }
-
-      assertTrue(insertLatch.await(10, TimeUnit.SECONDS));
    }
 
    private static ActiveMQBuffer encodeMessage(Message message) {

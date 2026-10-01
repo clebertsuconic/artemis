@@ -48,29 +48,32 @@ public class DatabaseStorageManagerTest extends AbstractStatementTest {
                                                                                  scheduledExecutorService, executorFactory.getExecutor(),
                                                                                  null);
       databaseStorageManager.start();
+      try {
+         CoreMessage message = new CoreMessage().initBuffer(10 * 1024).setDurable(true);
 
-      CoreMessage message = new CoreMessage().initBuffer(10 * 1024).setDurable(true);
+         message.setMessageID(333);
+         message.getBodyBuffer().writeByte((byte)'Z');
 
-      message.setMessageID(333);
-      message.getBodyBuffer().writeByte((byte)'Z');
+         databaseStorageManager.storeMessage(message);
+         databaseStorageManager.storeReference(1, 333, false, true);
 
-      databaseStorageManager.storeMessage(message);
-      databaseStorageManager.storeReference(1, 333, false, true);
+         CountDownLatch done = new CountDownLatch(1);
+         databaseStorageManager.getContext().executeOnCompletion(new IOCallback() {
+            @Override
+            public void done() {
+               done.countDown();
+            }
 
-      CountDownLatch done = new CountDownLatch(1);
-      databaseStorageManager.getContext().executeOnCompletion(new IOCallback() {
-         @Override
-         public void done() {
-            done.countDown();
-         }
+            @Override
+            public void onError(int errorCode, String errorMessage) {
 
-         @Override
-         public void onError(int errorCode, String errorMessage) {
+            }
+         });
 
-         }
-      });
-
-      assertTrue(done.await(10, TimeUnit.SECONDS));
+         assertTrue(done.await(10, TimeUnit.SECONDS));
+      } finally {
+         databaseStorageManager.stop();
+      }
    }
 
 
@@ -84,21 +87,24 @@ public class DatabaseStorageManagerTest extends AbstractStatementTest {
                                                                                  executorFactory.getExecutor(),
                                                                                  null);
       databaseStorageManager.start();
+      try {
+         DatabaseProvider databaseStorageProvider = storageConfiguration.getDatabaseProvider();
 
-      DatabaseProvider databaseStorageProvider = storageConfiguration.getDatabaseProvider();
+         int nrecords = 10;
 
-      int nrecords = 10;
-
-      try (Connection connection = databaseStorageProvider.getConnection()) {
-         connection.setAutoCommit(false);
-         for (int i = 1; i <= nrecords; i++) {
-            CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
-            message.setMessageID(i);
-            message.getBodyBuffer().writeByte((byte) 'Z');
-            databaseStorageManager.storeMessage(message);
+         try (Connection connection = databaseStorageProvider.getConnection()) {
+            connection.setAutoCommit(false);
+            for (int i = 1; i <= nrecords; i++) {
+               CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
+               message.setMessageID(i);
+               message.getBodyBuffer().writeByte((byte) 'Z');
+               databaseStorageManager.storeMessage(message);
+            }
+            OperationContextImpl.getContext().waitCompletion();
+            assertEquals(nrecords, selectCount(connection, databaseStorageProvider.getSqlProvider().getMessages()));
          }
-         OperationContextImpl.getContext().waitCompletion();
-         assertEquals(nrecords, selectCount(connection, databaseStorageProvider.getSqlProvider().getMessages()));
+      } finally {
+         databaseStorageManager.stop();
       }
    }
 
@@ -113,24 +119,27 @@ public class DatabaseStorageManagerTest extends AbstractStatementTest {
                                                                                  executorFactory.getExecutor(),
                                                                                  null);
       databaseStorageManager.start();
+      try {
+         DatabaseProvider databaseStorageProvider = storageConfiguration.getDatabaseProvider();
 
-      DatabaseProvider databaseStorageProvider = storageConfiguration.getDatabaseProvider();
+         int nrecords = 10;
 
-      int nrecords = 10;
-
-      try (Connection connection = databaseStorageProvider.getConnection()) {
-         connection.setAutoCommit(false);
-         for (int i = 1; i <= 10; i++) {
-            TransactionImpl tx = new TransactionImpl(databaseStorageManager);
-            CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
-            message.setMessageID(i);
-            message.getBodyBuffer().writeByte((byte) 'Z');
-            databaseStorageManager.storeMessageTransactional(tx, message);
-            databaseStorageManager.storeReferenceTransactional(tx, 3, message.getMessageID(), false);
-            databaseStorageManager.commit(tx);
-            assertTrue(OperationContextImpl.getContext().waitCompletion(5000));
+         try (Connection connection = databaseStorageProvider.getConnection()) {
+            connection.setAutoCommit(false);
+            for (int i = 1; i <= 10; i++) {
+               TransactionImpl tx = new TransactionImpl(databaseStorageManager);
+               CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
+               message.setMessageID(i);
+               message.getBodyBuffer().writeByte((byte) 'Z');
+               databaseStorageManager.storeMessageTransactional(tx, message);
+               databaseStorageManager.storeReferenceTransactional(tx, 3, message.getMessageID(), false);
+               databaseStorageManager.commit(tx);
+               assertTrue(OperationContextImpl.getContext().waitCompletion(5000));
+            }
+            assertEquals(nrecords, selectCount(connection, databaseStorageProvider.getSqlProvider().getMessages()));
          }
-         assertEquals(nrecords, selectCount(connection, databaseStorageProvider.getSqlProvider().getMessages()));
+      } finally {
+         databaseStorageManager.stop();
       }
    }
 
