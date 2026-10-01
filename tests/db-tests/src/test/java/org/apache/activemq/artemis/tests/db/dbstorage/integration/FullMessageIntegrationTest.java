@@ -37,6 +37,7 @@ import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedT
 import org.apache.activemq.artemis.tests.util.CFUtil;
 import org.apache.activemq.artemis.utils.RandomUtil;
 import org.apache.activemq.artemis.utils.Wait;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledIf;
@@ -121,8 +122,6 @@ public class FullMessageIntegrationTest extends AbstractStatementTest {
       testMessages("CORE", true, LARGE_MESSAGE_SIZE);
    }
 
-   // Large message size - AMQP
-
    @TestTemplate
    public void testAMQPLargeNonPaged() throws Exception {
       testMessages("AMQP", false, LARGE_MESSAGE_SIZE);
@@ -132,8 +131,6 @@ public class FullMessageIntegrationTest extends AbstractStatementTest {
    public void testAMQPLargePaged() throws Exception {
       testMessages("AMQP", true, LARGE_MESSAGE_SIZE);
    }
-
-   // Large message size - OpenWire
 
    @TestTemplate
    public void testOpenWireLargeNonPaged() throws Exception {
@@ -185,11 +182,19 @@ public class FullMessageIntegrationTest extends AbstractStatementTest {
       checkMessageCounts(1, true);
 
       Queue serverQueue = server.locateQueue(queueName);
+      serverQueue.forEach(r -> {
+         System.out.println("beforeRestart -> " + r.getMessage() + ", is large = " + r.getMessage().isLargeMessage());
+      });
 
       Wait.assertEquals(1L, serverQueue::getMessageCount);
 
       server.stop();
       server.start();
+
+      serverQueue = server.locateQueue(queueName);
+      serverQueue.forEach(r -> {
+         System.out.println("after restart -> " + r.getMessage() + ", is large = " + r.getMessage().isLargeMessage());
+      });
 
       try (javax.jms.Connection connection = factory.createConnection()) {
          connection.start();
@@ -248,6 +253,7 @@ public class FullMessageIntegrationTest extends AbstractStatementTest {
                   logger.debug("Committed batch {} with {}", (i + 1) / TX_COMMIT_INTERVAL, protocol);
                }
             }
+            session.commit();
          }
       }
 
