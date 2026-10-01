@@ -752,6 +752,10 @@ public class Create extends InstallAbstract {
             filters.put("${databaseRetryIntervalMillis}", "<database-retry-interval-millis>" + ActiveMQDefaultConfiguration.getDefaultDatabaseRetryIntervalMillis() + "</database-retry-interval-millis>");
             filters.put("${databaseFlushPeriodNanos}", "<database-flush-period-nanos>" + ActiveMQDefaultConfiguration.getDefaultDatabaseFlushPeriodNanos() + "</database-flush-period-nanos>");
             filters.put("${maxPendingWrites}", "<max-pending-writes>" + ActiveMQDefaultConfiguration.getDefaultDatabaseMaxPendingWrites() + "</max-pending-writes>");
+            filters.put("${databasePageJoinFetch}",
+                        "<!-- Controls how paged messages are read from the database. When true, a single JOIN query fetches (which may take longer to run on large sets, depending on the database and configuration)\n" +
+                        "            message IDs and data together. When false, two separate queries are used: first for IDs, then for data. -->\n" +
+                        "            <database-page-join-fetch>" + ActiveMQDefaultConfiguration.getDefaultDatabasePageJoinFetch() + "</database-page-join-fetch>");
          } else {
             filters.put("${databaseStorage}", "");
             filters.put("${databaseConnections}", "");
@@ -761,6 +765,7 @@ public class Create extends InstallAbstract {
             filters.put("${databaseRetryIntervalMillis}", "");
             filters.put("${databaseFlushPeriodNanos}", "");
             filters.put("${maxPendingWrites}", "");
+            filters.put("${databasePageJoinFetch}", "");
          }
          filters.put("${jdbc}", readTextFile(ETC_DATABASE_STORE_TXT, filters));
       } else {

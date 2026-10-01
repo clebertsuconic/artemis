@@ -146,6 +146,10 @@ public abstract class SQLProvider {
       return String.format("SELECT DR.MESSAGE_ID FROM %s DR WHERE DR.QUEUE_ID=? AND DR.PAGED='Y' ORDER BY DR.MESSAGE_ID", referencesTable);
    }
 
+   public String deliverPendingMessagesJoinFetch(String messagesTable, String referencesTable) {
+      return "SELECT DR.MESSAGE_ID, DM.MESSAGE_RECORD, DM.MEMORY_ESTIMATE FROM " + referencesTable + " DR, " + messagesTable + " DM WHERE DR.QUEUE_ID=? AND DR.PAGED='Y' AND DR.MESSAGE_ID = DM.MESSAGE_ID ORDER BY DR.MESSAGE_ID";
+   }
+
    public String updatePendingDelivery(String tableName) {
       return String.format("UPDATE %s SET PAGED='N' WHERE QUEUE_ID=? AND MESSAGE_ID=?", tableName);
    }

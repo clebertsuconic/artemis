@@ -34,15 +34,24 @@ public class MessagesPendingDeliverQueryForUpdate {
    Connection connection;
    DatabaseProvider databaseProvider;
    PreparedStatement deliveryPreparedStatement;
+   private final boolean pageJoinFetch;
 
-   public MessagesPendingDeliverQueryForUpdate(DatabaseProvider databaseProvider, Connection connection) {
+   public MessagesPendingDeliverQueryForUpdate(DatabaseProvider databaseProvider, Connection connection, final boolean pageJoinFetch) {
       this.databaseProvider = databaseProvider;
       this.connection = connection;
+      this.pageJoinFetch = pageJoinFetch;
    }
 
    public void prepare() throws SQLException {
+      String messagesTable = databaseProvider.getSqlProvider().getMessages();
       String referencesTable = databaseProvider.getSqlProvider().getRefs();
-      String deliverSQL = databaseProvider.getSqlProvider().deliverPendingMessages(referencesTable);
+      String deliverSQL;
+      if (pageJoinFetch) {
+         deliverSQL = databaseProvider.getSqlProvider().deliverPendingMessagesJoinFetch(messagesTable, referencesTable);
+      } else {
+         deliverSQL = databaseProvider.getSqlProvider().deliverPendingMessages(referencesTable);
+      }
+      logger.debug("Query used:: {}", deliverSQL);
       deliveryPreparedStatement = connection.prepareStatement(deliverSQL);
       deliveryPreparedStatement.setFetchSize(100);
    }

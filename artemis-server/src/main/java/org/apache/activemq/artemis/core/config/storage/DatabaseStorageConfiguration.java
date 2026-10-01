@@ -89,6 +89,8 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
 
    private int maxPendingWrites = ActiveMQDefaultConfiguration.getDefaultDatabaseMaxPendingWrites();
 
+   private boolean pageJoinFetch = ActiveMQDefaultConfiguration.getDefaultDatabasePageJoinFetch();
+
    private StoreType storeType = StoreType.DATABASE;
 
    @Override
@@ -246,6 +248,15 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
 
    public DatabaseStorageConfiguration setMaxPendingWrites(int maxPendingWrites) {
       this.maxPendingWrites = maxPendingWrites;
+      return this;
+   }
+
+   public boolean isPageJoinFetch() {
+      return pageJoinFetch;
+   }
+
+   public DatabaseStorageConfiguration setPageJoinFetch(boolean pageJoinFetch) {
+      this.pageJoinFetch = pageJoinFetch;
       return this;
    }
 

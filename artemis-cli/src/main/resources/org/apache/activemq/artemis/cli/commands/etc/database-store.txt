@@ -22,6 +22,7 @@
             ${databaseRetryIntervalMillis}
             ${databaseFlushPeriodNanos}
             ${maxPendingWrites}
+            ${databasePageJoinFetch}
             ${databaseStorage}
          </database-store>
       </store>

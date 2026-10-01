@@ -993,6 +993,12 @@ public interface ActiveMQServerLogger {
    @LogMessage(id = 222704, value = "StorageReader for queue {} has negative paged message count: {}", level = LogMessage.Level.WARN)
    void storageReaderNegativePagedCount(String queueName, long count);
 
+   @LogMessage(id = 222705, value = "Out of memory opening prefetch query for queue {}. Consider setting database-page-join-fetch=false in the database-store configuration.", level = LogMessage.Level.WARN)
+   void storageReaderPrefetchOOM(String queueName);
+
+   @LogMessage(id = 222706, value = "Failed to execute prefetch query for queue {}: {}", level = LogMessage.Level.WARN)
+   void storageReaderPrefetchQueryFailed(String queueName, String errorMessage);
+
    @LogMessage(id = 222274, value = "Failed to deploy address {}: {}", level = LogMessage.Level.WARN)
    void problemDeployingAddress(String addressName, String message);
 

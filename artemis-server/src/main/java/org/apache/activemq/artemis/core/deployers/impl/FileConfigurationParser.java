@@ -2109,6 +2109,7 @@ public final class FileConfigurationParser extends XMLConfigurationUtil {
       conf.setDatabaseRetryIntervalMillis(getLong(storeNode, "database-retry-interval-millis", conf.getDatabaseRetryIntervalMillis(), NO_CHECK));
       conf.setDatabaseFlushPeriodNanos(getLong(storeNode, "database-flush-period-nanos", conf.getDatabaseFlushPeriodNanos(), NO_CHECK));
       conf.setMaxPendingWrites(getInteger(storeNode, "max-pending-writes", conf.getMaxPendingWrites(), NO_CHECK));
+      conf.setPageJoinFetch(getBoolean(storeNode, "database-page-join-fetch", conf.isPageJoinFetch()));
       String jdbcUser = getString(storeNode, "jdbc-user", conf.getJdbcUser(), NO_CHECK);
       if (jdbcUser != null) {
          jdbcUser = PasswordMaskingUtil.resolveMask(mainConfig.isMaskPassword(), jdbcUser, mainConfig.getPasswordCodec());

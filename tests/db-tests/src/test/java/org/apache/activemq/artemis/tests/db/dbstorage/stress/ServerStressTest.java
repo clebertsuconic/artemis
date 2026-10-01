@@ -88,6 +88,9 @@ public class ServerStressTest extends AbstractStatementTest {
    public static void main(String[] args) throws Exception {
 
       String databaseName = args[0];
+      boolean pageJoinFetch = args.length > 1 && Boolean.parseBoolean(args[1]);
+
+      System.out.println("Running with pageJoinFetch=" + pageJoinFetch);
 
       Database db = Database.valueOf(databaseName.toUpperCase());
       ClassLoader dbClassLoader = db.getDBClassLoader();
@@ -149,7 +152,7 @@ public class ServerStressTest extends AbstractStatementTest {
             }
          }
 
-         MessagesPendingDeliverQueryForUpdate pendingDeliverQueryForUpdate = new MessagesPendingDeliverQueryForUpdate(databaseProvider, jdbcConnection);
+         MessagesPendingDeliverQueryForUpdate pendingDeliverQueryForUpdate = new MessagesPendingDeliverQueryForUpdate(databaseProvider, jdbcConnection, pageJoinFetch);
          pendingDeliverQueryForUpdate.prepare();
 
          timeStart = System.currentTimeMillis();
@@ -252,18 +255,18 @@ public class ServerStressTest extends AbstractStatementTest {
          }
       }
 
-      {
+      String classPath = SpawnedVMSupport.getClassPath();
+      String dbLibPath = SpawnedVMSupport.getClassPath(new java.io.File(getServerLocation(database.getName()), "lib"));
+      if (!dbLibPath.isEmpty()) {
+         classPath = classPath + java.io.File.pathSeparator + dbLibPath;
+      }
 
-         String classPath = SpawnedVMSupport.getClassPath();
-         String dbLibPath = SpawnedVMSupport.getClassPath(new java.io.File(getServerLocation(database.getName()), "lib"));
-         if (!dbLibPath.isEmpty()) {
-            classPath = classPath + java.io.File.pathSeparator + dbLibPath;
-         }
+      for (boolean pageJoinFetch : new boolean[]{true, false}) {
+         logger.info("Running spawned query process with pageJoinFetch={}", pageJoinFetch);
 
-         Process process = SpawnedVMSupport.spawnVM(classPath, ServerStressTest.getTestClassName(), new String[]{"-Xms512m", "-Xmx4G"}, true, database.getName());
-
-         assertTrue(process.waitFor(5, TimeUnit.MINUTES), "Spawned query process timed out");
-         assertEquals(0, process.exitValue(), "Spawned query process failed");
+         Process process = SpawnedVMSupport.spawnVM(classPath, ServerStressTest.getTestClassName(), new String[]{"-Xms512m", "-Xmx8G"}, true, database.getName(), String.valueOf(pageJoinFetch));
+         assertTrue(process.waitFor(5, TimeUnit.MINUTES), "Spawned query process timed out (pageJoinFetch=" + pageJoinFetch + ")");
+         assertEquals(0, process.exitValue(), "Spawned query process failed (pageJoinFetch=" + pageJoinFetch + ")");
       }
    }
 

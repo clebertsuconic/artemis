@@ -242,7 +242,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
          secondaryConnection.setAutoCommit(false);
          MessageDeliveryUpdater messageDeliveryUpdater = new MessageDeliveryUpdater(databaseProvider, secondaryConnection);
          messageDeliveryUpdater.init();
-         MessagesPendingDeliverQueryForUpdate pendingDeliveryLoad = new MessagesPendingDeliverQueryForUpdate(databaseProvider, connection);
+         MessagesPendingDeliverQueryForUpdate pendingDeliveryLoad = new MessagesPendingDeliverQueryForUpdate(databaseProvider, connection, false);
          pendingDeliveryLoad.prepare();
 
          java.util.concurrent.atomic.AtomicInteger count = new java.util.concurrent.atomic.AtomicInteger();

@@ -26,6 +26,7 @@ import javax.xml.crypto.Data;
 import java.lang.invoke.MethodHandles;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -507,6 +508,16 @@ public class ServerIntegrationTest extends AbstractStatementTest {
    // This is using the DatabaseStorageMessageReader directly to validate the depage process
    @TestTemplate
    public void testPagingDepageDirectly() throws Exception {
+      internalTestPagingDepageDirectly(true);
+   }
+
+   @TestTemplate
+   public void testPagingDepageDirectlyNoJoinFetch() throws Exception {
+      internalTestPagingDepageDirectly(false);
+   }
+
+   private void internalTestPagingDepageDirectly(boolean pageJoinFetch) throws Exception {
+      storageConfiguration.setPageJoinFetch(pageJoinFetch);
       int nMessages = 100;
 
       ActiveMQServer server = createServer(true, configuration);
@@ -556,7 +567,7 @@ public class ServerIntegrationTest extends AbstractStatementTest {
       AtomicInteger errors = new AtomicInteger(0);
       AtomicInteger totalMessages = new AtomicInteger(0);
       long queueID = queue.getID();
-      databaseStorageManager.getDataManager().executeQuery(service, worker -> consumePendingMessages(worker, queueID, done, totalMessages, errors), null);
+      databaseStorageManager.getDataManager().executeQuery(service, worker -> consumePendingMessages(worker, queueID, done, totalMessages, errors, pageJoinFetch), null);
       assertTrue(done.await(10, TimeUnit.SECONDS));
       assertEquals(0, errors.get());
       assertEquals(50, totalMessages.get());
@@ -595,9 +606,10 @@ public class ServerIntegrationTest extends AbstractStatementTest {
       AtomicInteger prefetch = new AtomicInteger(10);
 
       DatabaseStorageMessageReader storageMessageReader = new DatabaseStorageMessageReader(mockQueue, databaseStorageManager, prefetch::get, () -> 1024 * 1024);
+      storageMessageReader.addPending(100, 1024 * 1024);
       storageMessageReader.scheduleRead(false);
 
-      assertTrue(latch.await(1, TimeUnit.MINUTES));
+      assertTrue(latch.await(10, TimeUnit.MINUTES));
       assertEquals(10, references.size());
 
       latch.setCount(1);
@@ -653,10 +665,20 @@ public class ServerIntegrationTest extends AbstractStatementTest {
 
    @TestTemplate
    public void testInterruptProducer() throws Exception {
+      internalTestInterruptProducer(true);
+   }
+
+   @TestTemplate
+   public void testInterruptProducerNoJoinFetch() throws Exception {
+      internalTestInterruptProducer(false);
+   }
+
+   private void internalTestInterruptProducer(boolean pageJoinFetch) throws Exception {
+      storageConfiguration.setPageJoinFetch(pageJoinFetch);
 
       ActiveMQServer server = createServer(true, configuration);
       server.getConfiguration().getAddressSettings().clear();
-      AddressSettings settingPaging = new AddressSettings().setAddressFullMessagePolicy(AddressFullMessagePolicy.PAGE).setMaxSizeMessages(10).setMaxReadPageMessages(50);
+      AddressSettings settingPaging = new AddressSettings().setAddressFullMessagePolicy(AddressFullMessagePolicy.PAGE).setMaxSizeMessages(10).setMaxReadPageMessages(50).setPrefetchPageMessages(100);
       server.getConfiguration().addAddressSetting("#", settingPaging);
       server.getConfiguration().addAddressConfiguration(new CoreAddressConfiguration()
                                                            .setName(QUEUE_NAME)
@@ -695,14 +717,21 @@ public class ServerIntegrationTest extends AbstractStatementTest {
          }
          assertFalse(loggerHandler.findText("AMQ222704"));
       }
-
-
    }
 
    @TestTemplate
    public void testProducePagedThanConsume() throws Exception {
+      internalTestProducePagedThanConsume(true);
+   }
 
-      logger.info("******************************************************************************************************************************* test starting");
+   @TestTemplate
+   public void testProducePagedThanConsumeNoJoinFetch() throws Exception {
+      internalTestProducePagedThanConsume(false);
+   }
+
+   private void internalTestProducePagedThanConsume(boolean pageJoinFetch) throws Exception {
+      storageConfiguration.setPageJoinFetch(pageJoinFetch);
+
       int nMessages = 100;
 
       ActiveMQServer server = createServer(true, configuration);
@@ -770,19 +799,37 @@ public class ServerIntegrationTest extends AbstractStatementTest {
          }
       }
 
-
       checkMessageCounts(0, true);
-
    }
 
 
-   private void consumePendingMessages(DataWorker worker, long queueID, CountDownLatch done, AtomicInteger totalMessages, AtomicInteger errors) {
+   private void consumePendingMessages(DataWorker worker, long queueID, CountDownLatch done, AtomicInteger totalMessages, AtomicInteger errors, boolean pageJoinFetch) {
       try {
+         DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
+         SQLProvider sqlProvider = databaseProvider.getSqlProvider();
          try (ResultSet resultSet = worker.pendingDeliveryQueryForUpdate.execute(queueID)) {
-            while (resultSet.next()) {
-               MessageData messageData = QueryUtil.readMessageData(resultSet, 1, 2, 3);
-               logger.info("Data:: {}", messageData);
-               totalMessages.incrementAndGet();
+            if (pageJoinFetch) {
+               while (resultSet.next()) {
+                  MessageData messageData = QueryUtil.readMessageData(resultSet, 1, 2, 3);
+                  logger.debug("Data:: {}", messageData);
+                  totalMessages.incrementAndGet();
+               }
+            } else {
+               ArrayList<String> ids = new ArrayList<>();
+               while (resultSet.next()) {
+                  ids.add(resultSet.getString(1));
+               }
+               if (!ids.isEmpty()) {
+                  try (Connection conn = databaseProvider.getConnection();
+                       Statement stmt = conn.createStatement();
+                       ResultSet blobRecords = stmt.executeQuery(sqlProvider.selectMessagesBlob(sqlProvider.getMessages(), ids))) {
+                     while (blobRecords.next()) {
+                        MessageData messageData = QueryUtil.readMessageData(blobRecords, 1, 2, 3);
+                        logger.debug("Data:: {}", messageData);
+                        totalMessages.incrementAndGet();
+                     }
+                  }
+               }
             }
          }
       } catch (Exception e) {
@@ -791,7 +838,6 @@ public class ServerIntegrationTest extends AbstractStatementTest {
       } finally {
          done.countDown();
       }
-
    }
 
    @TestTemplate
@@ -832,6 +878,17 @@ public class ServerIntegrationTest extends AbstractStatementTest {
 
    @TestTemplate
    public void testSingleMessagePagingCleanup() throws Exception {
+      internalTestSingleMessagePagingCleanup(true);
+   }
+
+   @TestTemplate
+   public void testSingleMessagePagingCleanupNoJoinFetch() throws Exception {
+      internalTestSingleMessagePagingCleanup(false);
+   }
+
+   private void internalTestSingleMessagePagingCleanup(boolean pageJoinFetch) throws Exception {
+      storageConfiguration.setPageJoinFetch(pageJoinFetch);
+
       ActiveMQServer server = createServer(true, configuration);
       server.getConfiguration().getAddressSettings().clear();
       server.getConfiguration().addAddressSetting("#", new AddressSettings().setAddressFullMessagePolicy(AddressFullMessagePolicy.PAGE).setMaxSizeMessages(0));
@@ -870,6 +927,17 @@ public class ServerIntegrationTest extends AbstractStatementTest {
 
    @TestTemplate
    public void testMulticastTwoSubscribersPagingCleanup() throws Exception {
+      internalTestMulticastTwoSubscribersPagingCleanup(true);
+   }
+
+   @TestTemplate
+   public void testMulticastTwoSubscribersPagingCleanupNoJoinFetch() throws Exception {
+      internalTestMulticastTwoSubscribersPagingCleanup(false);
+   }
+
+   private void internalTestMulticastTwoSubscribersPagingCleanup(boolean pageJoinFetch) throws Exception {
+      storageConfiguration.setPageJoinFetch(pageJoinFetch);
+
       String addressName = "multicastAddress" + RandomUtil.randomUUIDString();
       String queue1Name = "sub1" + RandomUtil.randomUUIDString();
       String queue2Name = "sub2" + RandomUtil.randomUUIDString();

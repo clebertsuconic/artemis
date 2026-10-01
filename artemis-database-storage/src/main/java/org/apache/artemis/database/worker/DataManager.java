@@ -88,6 +88,11 @@ public class DataManager extends ActiveMQScheduledComponent {
 
    List<DataWorker> allWorkers;
 
+   private final boolean pageJoinFetch;
+   public boolean isPageJoinFetch() {
+      return pageJoinFetch;
+   }
+
    LinkedBlockingDeque<DataWorker> workers;
    final ConcurrentLinkedQueue<BaseInterceptor> scheduledQueries = new ConcurrentLinkedQueue<>();
    final Set<BorrowedWorker> borrowedWorkers = ConcurrentHashMap.newKeySet();
@@ -155,11 +160,13 @@ public class DataManager extends ActiveMQScheduledComponent {
                       int batchSize,
                       int numberOfConnections,
                       int maxReadConnections,
+                      boolean pageJoinFetch,
                       IntSupplier maxRetriesSupplier,
                       LongSupplier retryIntervalMillisSupplier,
                       Consumer<Throwable> criticalErrorListener) throws SQLException {
       super(scheduledExecutorService, executor, 0, flushTimeNanos, TimeUnit.NANOSECONDS, true);
 
+      this.pageJoinFetch = pageJoinFetch;
       this.scheduledExecutorService = scheduledExecutorService;
       this.maxReadConnections = maxReadConnections >= 0 ? maxReadConnections : numberOfConnections / 2;
       this.maxRetriesSupplier = maxRetriesSupplier;

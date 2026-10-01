@@ -38,6 +38,10 @@ public class MessageDeliveryUpdater {
       this.connection = connection;
    }
 
+   public void close() throws SQLException {
+      updateDeliveryStatement.close();
+   }
+
    public void init() throws SQLException {
       SQLProvider sqlProvider = provider.getSqlProvider();
       String updateSql = sqlProvider.updatePendingDelivery(sqlProvider.getRefs());

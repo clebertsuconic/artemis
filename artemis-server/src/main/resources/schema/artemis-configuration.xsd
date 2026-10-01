@@ -3268,6 +3268,16 @@
                </xsd:documentation>
             </xsd:annotation>
          </xsd:element>
+         <xsd:element name="database-page-join-fetch" type="xsd:boolean" default="true" maxOccurs="1" minOccurs="0">
+            <xsd:annotation>
+               <xsd:documentation>
+                  When true, paged messages are read using a single JOIN query that fetches message IDs and
+                  message data together. When false, a two-step approach is used: first query for message IDs,
+                  then fetch the message data (BLOBs) separately. The single JOIN query is generally more efficient
+                  but some databases may perform better with the two-step approach for large messages.
+               </xsd:documentation>
+            </xsd:annotation>
+         </xsd:element>
          <xsd:element name="database-storage" type="xsd:boolean" default="false" maxOccurs="1" minOccurs="0">
             <xsd:annotation>
                <xsd:documentation>

@@ -249,7 +249,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
       databaseProvider.createSchema();
 
       logger.info("Timeout:: {}", databaseConfiguration.getDatabaseFlushPeriodNanos());
-      dataManager = new DataManager(scheduledExecutorService, executorFactory.getExecutor(), executorService, databaseConfiguration.getDatabaseFlushPeriodNanos(), databaseProvider, batchSize, databaseConfiguration.getDatabaseConnections(), databaseConfiguration.getDatabaseMaxReadConnections(), databaseConfiguration::getDatabaseMaxRetries, databaseConfiguration::getDatabaseRetryIntervalMillis, this::criticalError);
+      dataManager = new DataManager(scheduledExecutorService, executorFactory.getExecutor(), executorService, databaseConfiguration.getDatabaseFlushPeriodNanos(), databaseProvider, batchSize, databaseConfiguration.getDatabaseConnections(), databaseConfiguration.getDatabaseMaxReadConnections(), databaseConfiguration.isPageJoinFetch(), databaseConfiguration::getDatabaseMaxRetries, databaseConfiguration::getDatabaseRetryIntervalMillis, this::criticalError);
       dataManager.setMaxCredits(databaseConfiguration.getMaxPendingWrites());
       dataManager.start();
 

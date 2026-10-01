@@ -121,7 +121,7 @@ public class DataWorker implements Runnable {
       insertBindingsGenericDataStatement = new InsertGenericDataStatement(databaseProvider, connection, batchSize, bindingsTable);
       updateBindingsGenericDataStatement = new UpdateGenericDataStatement(databaseProvider, connection, batchSize, bindingsTable);
       deleteBindingsGenericDataStatement = new DeleteGenericDataStatement(databaseProvider, connection, batchSize, bindingsTable);
-      pendingDeliveryQueryForUpdate = new MessagesPendingDeliverQueryForUpdate(databaseProvider, connection);
+      pendingDeliveryQueryForUpdate = new MessagesPendingDeliverQueryForUpdate(databaseProvider, connection, dataManager.isPageJoinFetch());
       pendingDeliveryQueryForUpdate.prepare();
       pendingTX = new ArrayList<>();
    }

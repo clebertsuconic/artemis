@@ -516,6 +516,8 @@ public final class ActiveMQDefaultConfiguration {
 
    private static final int DEFAULT_DATABASE_MAX_PENDING_WRITES = 100_000;
 
+   private static final boolean DEFAULT_DATABASE_PAGE_JOIN_FETCH = false;
+
    // Default period to wait between connection TTL checks
    public static final long DEFAULT_CONNECTION_TTL_CHECK_INTERVAL = 2000;
 
@@ -1666,6 +1668,10 @@ public final class ActiveMQDefaultConfiguration {
 
    public static int getDefaultDatabaseMaxPendingWrites() {
       return DEFAULT_DATABASE_MAX_PENDING_WRITES;
+   }
+
+   public static boolean getDefaultDatabasePageJoinFetch() {
+      return DEFAULT_DATABASE_PAGE_JOIN_FETCH;
    }
 
    public static long getDefaultConnectionTtlCheckInterval() {
