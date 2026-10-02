@@ -53,7 +53,7 @@ public class RealServerTest extends ParameterDBTestBase {
    @Parameters(name = "db={0}")
    public static Collection<Object[]> parameters() {
       List<Database> dbList = Database.selectedList();
-      dbList.remove(Database.DERBY);
+      dbList.remove(Database.HSQL);
       dbList.remove(Database.JOURNAL);
       return convertParameters(dbList);
    }

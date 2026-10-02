@@ -24,12 +24,12 @@
             <database-storage>true</database-storage>
             <database-connections>10</database-connections>
             <database-flush-period-nanos>15</database-flush-period-nanos>
-            <jdbc-connection-url>jdbc:derby:target/derby/database-storage-store;create=true</jdbc-connection-url>
+            <jdbc-connection-url>jdbc:hsqldb:mem:database-storage-store</jdbc-connection-url>
             <bindings-table-name>BINDINGS_TABLE</bindings-table-name>
             <message-table-name>MESSAGE_TABLE</message-table-name>
             <large-message-table-name>LARGE_MESSAGE_TABLE</large-message-table-name>
             <page-store-table-name>PAGE_STORE_TABLE</page-store-table-name>
-            <jdbc-driver-class-name>org.apache.derby.jdbc.EmbeddedDriver</jdbc-driver-class-name>
+            <jdbc-driver-class-name>org.hsqldb.jdbc.JDBCDriver</jdbc-driver-class-name>
          </database-store>
       </store>
    </core>

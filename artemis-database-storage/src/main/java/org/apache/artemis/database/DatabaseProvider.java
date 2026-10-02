@@ -23,7 +23,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.apache.artemis.database.sql.DB2SQLProvider;
-import org.apache.artemis.database.sql.DerbySQLProvider;
+import org.apache.artemis.database.sql.HsqlSQLProvider;
 import org.apache.artemis.database.sql.MSSQLProvider;
 import org.apache.artemis.database.sql.MySQLSqlProvider;
 import org.apache.artemis.database.sql.OracleSQLProvider;
@@ -61,8 +61,8 @@ public class DatabaseProvider {
             return new DB2SQLProvider();
          } else if (dbProduct.contains("microsoft sql server")) {
             return new MSSQLProvider();
-         } else if (dbProduct.contains("derby")) {
-            return new DerbySQLProvider();
+         } else if (dbProduct.contains("hsql")) {
+            return new HsqlSQLProvider();
          } else {
             throw new SQLException("Unsupported database product: " + connection.getMetaData().getDatabaseProductName());
          }

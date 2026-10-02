@@ -17,7 +17,7 @@
 
 package org.apache.artemis.database.sql;
 
-public class DerbySQLProvider extends SQLProvider {
+public class HsqlSQLProvider extends SQLProvider {
 
    @Override
    public String createMessages(String tableName) {
@@ -26,17 +26,17 @@ public class DerbySQLProvider extends SQLProvider {
 
    @Override
    public String createReferences(String tableName) {
-      return String.format("CREATE TABLE IF NOT EXISTS %s(MESSAGE_ID BIGINT NOT NULL, QUEUE_ID BIGINT NOT NULL, PAGED CHAR NOT NULL, TX_ID BIGINT, PRIMARY KEY (MESSAGE_ID, QUEUE_ID))", tableName);
+      return String.format("CREATE TABLE IF NOT EXISTS %s(MESSAGE_ID BIGINT NOT NULL, QUEUE_ID BIGINT NOT NULL, PAGED CHAR(1) NOT NULL, TX_ID BIGINT, PRIMARY KEY (MESSAGE_ID, QUEUE_ID))", tableName);
    }
 
    @Override
    public String createAddress(String tableName) {
-      return String.format("CREATE TABLE IF NOT EXISTS %s(ADDRESS_ID BIGINT NOT NULL, ADDRESS_NAME VARCHAR(255) NOT NULL, IS_MULTICAST CHAR, IS_ANYCAST CHAR, PRIMARY KEY (ADDRESS_ID))", tableName);
+      return String.format("CREATE TABLE IF NOT EXISTS %s(ADDRESS_ID BIGINT NOT NULL, ADDRESS_NAME VARCHAR(255) NOT NULL, IS_MULTICAST CHAR(1), IS_ANYCAST CHAR(1), PRIMARY KEY (ADDRESS_ID))", tableName);
    }
 
    @Override
    public String createQueue(String tableName) {
-      return String.format("CREATE TABLE IF NOT EXISTS %s(QUEUE_ID BIGINT NOT NULL, ADDRESS_ID BIGINT NOT NULL, QUEUE_NAME VARCHAR(255), IS_MULTICAST CHAR, IS_ANYCAST CHAR, FILTER_STRING BLOB, QUEUE_CONFIG BLOB, PRIMARY KEY (QUEUE_ID))", tableName);
+      return String.format("CREATE TABLE IF NOT EXISTS %s(QUEUE_ID BIGINT NOT NULL, ADDRESS_ID BIGINT NOT NULL, QUEUE_NAME VARCHAR(255), IS_MULTICAST CHAR(1), IS_ANYCAST CHAR(1), FILTER_STRING BLOB, QUEUE_CONFIG BLOB, PRIMARY KEY (QUEUE_ID))", tableName);
    }
 
    @Override
