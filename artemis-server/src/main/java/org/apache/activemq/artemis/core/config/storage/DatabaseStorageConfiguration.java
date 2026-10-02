@@ -326,7 +326,12 @@ public class DatabaseStorageConfiguration implements StoreConfiguration {
 
    public DatabaseProvider getDatabaseProvider() throws SQLException {
       if (databaseProvider == null) {
-         databaseProvider = new DatabaseProvider(getDataSource(), getJdbcUser(), getJdbcPassword());
+         // commons-dbcp2 doesn't support DataSource::getConnection(user, password)
+         if (dataSourceClassName == ActiveMQDefaultConfiguration.getDefaultDataSourceClassName()) {
+            databaseProvider = new DatabaseProvider(getDataSource(), null, null);
+         } else {
+            databaseProvider = new DatabaseProvider(getDataSource(), getJdbcUser(), getJdbcPassword());
+         }
       }
       return databaseProvider;
    }
