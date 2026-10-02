@@ -44,14 +44,14 @@ public class MessagesJDBCQuery {
       String messagesTable = databaseProvider.getSqlProvider().getMessages();
       String referencesTable = databaseProvider.getSqlProvider().getRefs();
       String sql = databaseProvider.getSqlProvider().reloadMessages(messagesTable, referencesTable);
-      results(consumer, sql);
+      results(consumer, sql, true);
    }
 
    public void queryOrphaned(Consumer<MessageData> consumer) throws Exception {
       String messagesTable = databaseProvider.getSqlProvider().getMessages();
       String referencesTable = databaseProvider.getSqlProvider().getRefs();
       String sql = databaseProvider.getSqlProvider().orphanedMessages(messagesTable, referencesTable);
-      results(consumer, sql);
+      results(consumer, sql, false);
    }
 
    public int deleteOrphaned() throws SQLException {
@@ -68,12 +68,17 @@ public class MessagesJDBCQuery {
    }
 
 
-   private void results(Consumer<MessageData> consumer, String sql) throws SQLException {
+   private void results(Consumer<MessageData> consumer, String sql, boolean readLargeFields) throws SQLException {
       try (Statement statement = connection.createStatement()) {
          statement.setFetchSize(500);
          try (ResultSet resultSet = statement.executeQuery(sql)) {
             while (resultSet.next()) {
-               MessageData messageData = QueryUtil.readMessageData(resultSet, 1, 2, 3);
+               MessageData messageData;
+               if (readLargeFields) {
+                  messageData = QueryUtil.readMessageData(resultSet, 1, 2, 3, 4, 5);
+               } else {
+                  messageData = QueryUtil.readMessageData(resultSet, 1, 2, 3);
+               }
                consumer.accept(messageData);
             }
          }

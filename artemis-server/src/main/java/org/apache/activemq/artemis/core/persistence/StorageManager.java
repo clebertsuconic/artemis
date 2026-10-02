@@ -108,8 +108,8 @@ public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQ
       return false;
    }
 
-   default boolean largeMessagesInline() {
-      return false;
+   default boolean fileBased() {
+      return true;
    }
 
    default long getWarningRecordSize() {

@@ -20,6 +20,7 @@ package org.apache.artemis.database.worker;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.lang.invoke.MethodHandles;
+import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -148,8 +149,10 @@ public class DataManager extends ActiveMQScheduledComponent {
                                      Supplier<ActiveMQBuffer> messageBufferSupplier,
                                      Long txID,
                                      int memoryEstimate,
+                                     boolean isLarge,
+                                     Supplier<ActiveMQBuffer> largeBodySupplier,
                                      IOCompletion context) {
-      return new MessageData(messageID, messageBufferSupplier, txID, memoryEstimate, context);
+      return new MessageData(messageID, messageBufferSupplier, txID, memoryEstimate, isLarge, largeBodySupplier, context);
    }
 
    public DataManager(ScheduledExecutorService scheduledExecutorService,
@@ -273,16 +276,20 @@ public class DataManager extends ActiveMQScheduledComponent {
                             Supplier<ActiveMQBuffer> messageBufferSupplier,
                             Long tx,
                             int memoryEstimate,
+                            boolean isLarge,
+                            Supplier<ActiveMQBuffer> largeBodySupplier,
                             IOCompletion callback) {
-      castTX(storageTX).addData(new MessageData(messageID, messageBufferSupplier, tx, memoryEstimate, callback));
+      castTX(storageTX).addData(new MessageData(messageID, messageBufferSupplier, tx, memoryEstimate, isLarge, largeBodySupplier, callback));
    }
 
    public void storeMessage(long messageID,
                             Supplier<ActiveMQBuffer> messageBufferSupplier,
                             Long tx,
                             int memoryEstimate,
+                            boolean isLarge,
+                            Supplier<ActiveMQBuffer> largeBodySupplier,
                             IOCompletion callback) {
-      flushData(new MessageData(messageID, messageBufferSupplier, tx, memoryEstimate, callback));
+      flushData(new MessageData(messageID, messageBufferSupplier, tx, memoryEstimate, isLarge, largeBodySupplier, callback));
    }
 
    public void deleteMessage(long messageID, IOCompletion callback) {

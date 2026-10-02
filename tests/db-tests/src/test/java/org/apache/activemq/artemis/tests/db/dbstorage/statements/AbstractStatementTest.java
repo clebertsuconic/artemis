@@ -80,7 +80,6 @@ public class AbstractStatementTest extends ParameterDBTestBase {
    @Override
    public void setUp() throws Exception {
       super.setUp();
-      assumeTrue(database != Database.HSQL);
       if (isDropDatabase()) {
          dropDatabase();
       }

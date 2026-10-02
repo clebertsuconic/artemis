@@ -34,6 +34,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
@@ -63,10 +64,12 @@ import org.apache.activemq.artemis.core.paging.dbimpl.DatabasePagingManager;
 import org.apache.activemq.artemis.core.paging.dbimpl.DatabasePagingStoreFactory;
 import org.apache.activemq.artemis.core.persistence.AddressBindingInfo;
 import org.apache.activemq.artemis.core.persistence.AddressQueueStatus;
+import org.apache.activemq.artemis.core.persistence.CoreMessageObjectPools;
 import org.apache.activemq.artemis.core.persistence.GroupingInfo;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.Persister;
 import org.apache.activemq.artemis.core.persistence.QueueBindingInfo;
+import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.config.AbstractPersistedAddressSetting;
 import org.apache.activemq.artemis.core.persistence.config.PersistedAddressSettingJSON;
 import org.apache.activemq.artemis.core.persistence.config.PersistedBridgeConfiguration;
@@ -78,13 +81,17 @@ import org.apache.activemq.artemis.core.persistence.config.PersistedSecuritySett
 import org.apache.activemq.artemis.core.persistence.config.PersistedUser;
 import org.apache.activemq.artemis.core.persistence.impl.AbstractStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.PageCountPending;
+import org.apache.activemq.artemis.core.persistence.impl.database.sequential.MemorySequentialFile;
 import org.apache.activemq.artemis.core.persistence.impl.journal.AbstractJournalStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.BatchingIDGenerator;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalRecordIds;
+import org.apache.activemq.artemis.core.persistence.impl.journal.LargeBody;
+import org.apache.activemq.artemis.core.persistence.impl.journal.LargeServerMessageImpl;
 import org.apache.activemq.artemis.core.persistence.impl.journal.OperationContextImpl;
 import org.apache.activemq.artemis.core.persistence.impl.journal.codec.AddressStatusEncoding;
 import org.apache.activemq.artemis.core.persistence.impl.journal.codec.DuplicateIDEncoding;
 import org.apache.activemq.artemis.core.persistence.impl.journal.codec.GroupingEncoding;
+import org.apache.activemq.artemis.core.persistence.impl.journal.codec.LargeMessagePersister;
 import org.apache.activemq.artemis.core.persistence.impl.journal.codec.PersistentAddressBindingEncoding;
 import org.apache.activemq.artemis.core.persistence.impl.journal.codec.PersistentQueueBindingEncoding;
 import org.apache.activemq.artemis.core.persistence.impl.journal.codec.QueueStatusEncoding;
@@ -122,13 +129,14 @@ import org.apache.artemis.database.queries.MessagesJDBCQuery;
 import org.apache.artemis.database.queries.QueueJDBCQuery;
 import org.apache.artemis.database.queries.ReferencesJDBCQuery;
 import org.apache.artemis.database.worker.DataManager;
+import org.jgroups.protocols.CLEAR_FLAGS;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DatabaseStorageManager extends AbstractStorageManager {
    @Override
-   public boolean largeMessagesInline() {
-      return true;
+   public boolean fileBased() {
+      return false;
    }
 
    @Override
@@ -318,14 +326,45 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public void storeMessage(Message message) throws Exception {
-      dataManager.storeMessage(message.getMessageID(), () -> encodeMessage(message), null, message.getMemoryEstimate(), getContext());
+      dataManager.storeMessage(message.getMessageID(), () -> encodeMessage(message), null, message.getMemoryEstimate(), message.isLargeMessage(), () -> getLargeBody(message), getContext());
    }
 
-   private static ActiveMQBuffer encodeMessage(Message message) {
-      int size = message.getPersister().getEncodeSize(message);
-      ActiveMQBuffer buffer = ActiveMQBuffers.fixedBuffer(size);
-      message.getPersister().encode(buffer, message);
-      return buffer;
+
+   public static ActiveMQBuffer getLargeBody(Message message) {
+      if (message.isLargeMessage()) {
+         LargeServerMessage largeServerMessage = (LargeServerMessage) message;
+         return largeServerMessage.getLargeBody().getBodyBuffer();
+      } else {
+         return null;
+      }
+   }
+
+   public static Message decodeMessage(long messageID, boolean isLarge, Supplier<ActiveMQBuffer> encodeBufferSupplier, Supplier<ActiveMQBuffer> largeBodyBuffer, StorageManager storageManager) {
+      if (isLarge) {
+         MemorySequentialFile memorySequentialFile = new MemorySequentialFile("file-" + messageID, largeBodyBuffer.get());
+         LargeServerMessageImpl largeServerMessage = new LargeServerMessageImpl((byte)0, messageID, storageManager, memorySequentialFile);
+         return largeServerMessage;
+      } else {
+         Message message = MessagePersister.getInstance().decode(encodeBufferSupplier.get(), null, null);
+         message.setMessageID(messageID);
+         return message;
+      }
+   }
+
+
+   public static ActiveMQBuffer encodeMessage(Message message) {
+      if (message.isLargeMessage() && message instanceof LargeServerMessage) {
+         LargeServerMessage largeServerMessage = (LargeServerMessage) message;
+         int encodeSize = LargeMessagePersister.getInstance().getEncodeSize((LargeServerMessage) message);
+         ActiveMQBuffer buffer = ActiveMQBuffers.fixedBuffer(encodeSize);
+         LargeMessagePersister.getInstance().encode(buffer, largeServerMessage);
+         return buffer;
+      } else {
+         int size = message.getPersister().getEncodeSize(message);
+         ActiveMQBuffer buffer = ActiveMQBuffers.fixedBuffer(size);
+         message.getPersister().encode(buffer, message);
+         return buffer;
+      }
    }
 
    @Override
@@ -376,7 +415,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public void storeMessageTransactional(Transaction tx, Message message) throws Exception {
-      dataManager.storeMessage(tx.getStorageTx(), message.getMessageID(), () -> encodeMessage(message), tx.getID(), message.getMemoryEstimate(), getContext());
+      dataManager.storeMessage(tx.getStorageTx(), message.getMessageID(), () -> encodeMessage(message), tx.getID(), message.getMemoryEstimate(), message.isLargeMessage(), null, getContext());
    }
 
    @Override
@@ -943,7 +982,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
             MessagesJDBCQuery query = new MessagesJDBCQuery(databaseProvider, connection);
             logger.info("Querying messages");
             query.query(data -> {
-               loadedMessages.put(data.messageID, decodeMessage(data));
+               loadedMessages.put(data.messageID, decodeMessage(data.messageID, data.isLarge, data.messageBufferSupplier, data.largeBodySupplier, DatabaseStorageManager.this));
             });
          }
 
@@ -1151,28 +1190,28 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public LargeServerMessage createCoreLargeMessage() {
-      DatabaseLargeServerMessage msg = new DatabaseLargeServerMessage();
-      msg.setStorageManager(this);
+      LargeServerMessageImpl msg = new LargeServerMessageImpl(this);
       return msg;
    }
 
    @Override
    public LargeServerMessage createCoreLargeMessage(long id, Message message) throws Exception {
-      DatabaseLargeServerMessage largeMessage = new DatabaseLargeServerMessage();
-      largeMessage.setStorageManager(this);
+      LargeServerMessageImpl largeMessage = (LargeServerMessageImpl) createCoreLargeMessage();
+
       largeMessage.moveHeadersAndProperties(message);
+
+      return onLargeMessageCreate(id, largeMessage);
+   }
+
+   @Override
+   public LargeServerMessage onLargeMessageCreate(long id, LargeServerMessage largeMessage) throws Exception {
       largeMessage.setMessageID(id);
       return largeMessage;
    }
 
    @Override
-   public LargeServerMessage onLargeMessageCreate(long id, LargeServerMessage largeMessage) throws Exception {
-      return null;
-   }
-
-   @Override
    public SequentialFile createFileForLargeMessage(long messageID, LargeMessageExtension extension) {
-      return null;
+      return new MemorySequentialFile("file " + messageID);
    }
 
    @Override
@@ -1201,23 +1240,27 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public void addBytesToLargeMessage(SequentialFile appendFile, long messageID, byte[] bytes) throws Exception {
-
+      if (appendFile != null) {
+         if (!appendFile.isOpen()) {
+            appendFile.open();
+         }
+         appendFile.writeDirect(ByteBuffer.wrap(bytes), false);
+      }
    }
 
    @Override
    public void addBytesToLargeMessage(SequentialFile file, long messageId, ActiveMQBuffer bytes) throws Exception {
-
+      if (file != null) {
+         if (!file.isOpen()) {
+            file.open();
+         }
+         file.writeDirect(bytes.toByteBuffer(), false);
+      }
    }
 
    @Override
    public void injectMonitor(FileStoreMonitor monitor) throws Exception {
 
-   }
-
-   public static Message decodeMessage(MessageData data) {
-      Message message = MessagePersister.getInstance().decode(data.messageBufferSupplier.get(), null, null);
-      message.setMessageID(data.messageID);
-      return message;
    }
 
    // A separate connection is used for deletes because some databases (e.g. PostgreSQL)

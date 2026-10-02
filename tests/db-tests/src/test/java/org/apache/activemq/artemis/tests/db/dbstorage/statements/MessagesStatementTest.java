@@ -107,7 +107,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
                CoreMessage message = new CoreMessage().initBuffer(1 * 1024).setDurable(true);
                message.setMessageID(i);
                message.getBodyBuffer().writeByte((byte) 'Z');
-               MessageData task = databaseStorageManager.getDataManager().newMessageTask(message.getMessageID(), () -> encodeMessage(message), null, message.getMemoryEstimate(), latch);
+               MessageData task = databaseStorageManager.getDataManager().newMessageTask(message.getMessageID(), () -> encodeMessage(message), null, message.getMemoryEstimate(), false, null, latch);
                insertMessageStatement.addElement(task, latch);
             }
             insertMessageStatement.flushPending(true);
@@ -397,7 +397,7 @@ public class MessagesStatementTest extends AbstractStatementTest {
                message.setMessageID(1); // everything should fail with a DuplicateException
                message.getBodyBuffer().writeByte((byte) 'Z');
 
-               insertMessageStatement.addElement(databaseStorageManager.getDataManager().newMessageTask(message.getMessageID(), () -> encodeMessage(message), null, message.getMemoryEstimate(), ioCallback), ioCallback);
+               insertMessageStatement.addElement(databaseStorageManager.getDataManager().newMessageTask(message.getMessageID(), () -> encodeMessage(message), null, message.getMemoryEstimate(), false, null, ioCallback), ioCallback);
             }
             assertThrows(SQLException.class, () -> insertMessageStatement.flushPending(true));
 

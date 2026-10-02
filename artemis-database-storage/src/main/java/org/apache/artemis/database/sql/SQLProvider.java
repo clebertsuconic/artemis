@@ -73,7 +73,7 @@ public abstract class SQLProvider {
    public abstract String createGenericData(String tableName);
 
    public String insertMessages(String tableName) {
-      return String.format("INSERT INTO %s (MESSAGE_ID, MESSAGE_RECORD, TX_ID, MEMORY_ESTIMATE) VALUES (?,?,?,?)", tableName);
+      return String.format("INSERT INTO %s (MESSAGE_ID, MESSAGE_RECORD, TX_ID, MEMORY_ESTIMATE, IS_LARGE, LARGE_BODY) VALUES (?,?,?,?,?,?)", tableName);
    }
 
    public String insertReferences(String tableName) {
@@ -129,7 +129,7 @@ public abstract class SQLProvider {
    }
 
    public String reloadMessages(String messagesTable, String referencesTable) {
-      return String.format("SELECT a.MESSAGE_ID, a.MESSAGE_RECORD, a.MEMORY_ESTIMATE FROM %s a WHERE EXISTS (SELECT 1 FROM %s b WHERE b.MESSAGE_ID = a.MESSAGE_ID AND b.PAGED='N') ORDER BY a.MESSAGE_ID", messagesTable, referencesTable);
+      return String.format("SELECT a.MESSAGE_ID, a.MESSAGE_RECORD, a.MEMORY_ESTIMATE, a.IS_LARGE, a.LARGE_BODY FROM %s a WHERE EXISTS (SELECT 1 FROM %s b WHERE b.MESSAGE_ID = a.MESSAGE_ID AND b.PAGED='N') ORDER BY a.MESSAGE_ID", messagesTable, referencesTable);
    }
 
    // returning only the messages that have at least one PAGED = "N"
@@ -147,7 +147,7 @@ public abstract class SQLProvider {
    }
 
    public String deliverPendingMessagesJoinFetch(String messagesTable, String referencesTable) {
-      return "SELECT DR.MESSAGE_ID, DM.MESSAGE_RECORD, DM.MEMORY_ESTIMATE FROM " + referencesTable + " DR, " + messagesTable + " DM WHERE DR.QUEUE_ID=? AND DR.PAGED='Y' AND DR.MESSAGE_ID = DM.MESSAGE_ID ORDER BY DR.MESSAGE_ID";
+      return "SELECT DR.MESSAGE_ID, DM.MESSAGE_RECORD, DM.MEMORY_ESTIMATE, DM.IS_LARGE, DM.LARGE_BODY FROM " + referencesTable + " DR, " + messagesTable + " DM WHERE DR.QUEUE_ID=? AND DR.PAGED='Y' AND DR.MESSAGE_ID = DM.MESSAGE_ID ORDER BY DR.MESSAGE_ID";
    }
 
    public String updatePendingDelivery(String tableName) {
@@ -159,7 +159,7 @@ public abstract class SQLProvider {
    }
 
    public String selectMessagesWithReferences(String messagesTable, String referencesTable) {
-      return String.format("SELECT a.MESSAGE_ID, a.TX_ID, a.MEMORY_ESTIMATE, a.MESSAGE_RECORD, b.QUEUE_ID, b.PAGED FROM %s a LEFT JOIN %s b ON a.MESSAGE_ID = b.MESSAGE_ID ORDER BY a.MESSAGE_ID, b.QUEUE_ID", messagesTable, referencesTable);
+      return String.format("SELECT a.MESSAGE_ID, a.TX_ID, a.MEMORY_ESTIMATE, a.MESSAGE_RECORD, b.QUEUE_ID, b.PAGED, a.IS_LARGE, a.LARGE_BODY FROM %s a LEFT JOIN %s b ON a.MESSAGE_ID = b.MESSAGE_ID ORDER BY a.MESSAGE_ID, b.QUEUE_ID", messagesTable, referencesTable);
    }
 
    public String selectAddress(String tableName) {

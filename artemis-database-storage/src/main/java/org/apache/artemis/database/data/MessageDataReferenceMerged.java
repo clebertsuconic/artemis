@@ -52,15 +52,21 @@ public class MessageDataReferenceMerged {
    public final Long tx;
    public final int memoryEstimate;
    public final Supplier<ActiveMQBuffer> messageBufferSupplier;
+   public final Supplier<ActiveMQBuffer> largeBodySupplier;
    public final List<QueueRef> queues;
+   public final boolean isLarge;
 
    public MessageDataReferenceMerged(long messageID, Long tx, int memoryEstimate,
                                      Supplier<ActiveMQBuffer> messageBufferSupplier,
-                                     List<QueueRef> queues) {
+                                     Supplier<ActiveMQBuffer> largeBodySupplier,
+                                     List<QueueRef> queues,
+                                     boolean isLarge) {
       this.messageID = messageID;
       this.tx = tx;
       this.memoryEstimate = memoryEstimate;
       this.messageBufferSupplier = messageBufferSupplier;
+      this.largeBodySupplier = largeBodySupplier;
       this.queues = Collections.unmodifiableList(new ArrayList<>(queues));
+      this.isLarge = isLarge;
    }
 }

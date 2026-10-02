@@ -18,6 +18,7 @@
 package org.apache.artemis.database.statements;
 
 import java.lang.invoke.MethodHandles;
+import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -54,6 +55,14 @@ public class InsertMessageStatement extends BatchableStatement<MessageData> {
          preparedStatement.setNull(3, Types.NUMERIC);
       }
       preparedStatement.setInt(4, task.memoryEstimate);
+      preparedStatement.setString(5, task.isLarge ? "Y" : "N");
+      ActiveMQBuffer largeBody = task.largeBodySupplier != null ? task.largeBodySupplier.get() : null;
+      if (largeBody != null) {
+         largeBody.readerIndex(0);
+         preparedStatement.setBinaryStream(6, blobInputStream(largeBody));
+      } else {
+         preparedStatement.setBytes(6, null);
+      }
    }
 
 }

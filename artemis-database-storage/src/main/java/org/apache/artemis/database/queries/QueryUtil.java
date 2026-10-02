@@ -17,8 +17,10 @@
 
 package org.apache.artemis.database.queries;
 
+import java.nio.ByteBuffer;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.function.Supplier;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
@@ -27,11 +29,23 @@ import org.apache.artemis.database.data.MessageData;
 public class QueryUtil {
 
    public static MessageData readMessageData(ResultSet resultSet, int idColumn, int bytesColumn, int memoryEstimateColumn) throws SQLException {
+      return readMessageData(resultSet, idColumn, bytesColumn, memoryEstimateColumn, -1, -1);
+   }
+
+   public static MessageData readMessageData(ResultSet resultSet, int idColumn, int bytesColumn, int memoryEstimateColumn, int isLargeColumn, int largeBodyColumn) throws SQLException {
       long messageID = resultSet.getLong(idColumn);
       byte[] bytes = resultSet.getBytes(bytesColumn);
       ActiveMQBuffer buffer = ActiveMQBuffers.wrappedBuffer(bytes);
       int memoryEstimate = memoryEstimateColumn > 0 ? resultSet.getInt(memoryEstimateColumn) : 0;
+      boolean isLarge = isLargeColumn > 0 && "Y".equals(resultSet.getString(isLargeColumn));
+      Supplier<ActiveMQBuffer> largeBodySupplier = null;
+      if (largeBodyColumn > 0) {
+         byte[] largeBody = resultSet.getBytes(largeBodyColumn);
+         if (largeBody != null) {
+            largeBodySupplier = () -> ActiveMQBuffers.wrappedBuffer(largeBody);
+         }
+      }
 
-      return new MessageData(messageID, () -> buffer, null, memoryEstimate);
+      return new MessageData(messageID, () -> buffer, null, memoryEstimate, isLarge, largeBodySupplier, null);
    }
 }

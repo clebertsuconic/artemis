@@ -17,6 +17,7 @@
 
 package org.apache.artemis.database.data;
 
+import java.nio.ByteBuffer;
 import java.util.function.Supplier;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
@@ -24,21 +25,22 @@ import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.artemis.database.worker.DataWorker;
 
 public class MessageData extends DBData {
-   public MessageData(long messageID, Supplier<ActiveMQBuffer> messageBufferSupplier, Long tx, int memoryEstimate, IOCompletion context) {
+   public MessageData(long messageID, Supplier<ActiveMQBuffer> messageBufferSupplier, Long tx, int memoryEstimate, boolean isLarge, Supplier<ActiveMQBuffer> largeBodySupplier, IOCompletion context) {
       super(context);
       this.messageID = messageID;
       this.messageBufferSupplier = messageBufferSupplier;
       this.tx = tx;
       this.memoryEstimate = memoryEstimate;
-   }
-   public MessageData(long messageID, Supplier<ActiveMQBuffer> messageBufferSupplier, Long tx, int memoryEstimate) {
-      this(messageID, messageBufferSupplier, tx, memoryEstimate, null);
+      this.isLarge = isLarge;
+      this.largeBodySupplier = largeBodySupplier;
    }
 
    public final long messageID;
    public final Supplier<ActiveMQBuffer> messageBufferSupplier;
    public final Long tx;
    public final int memoryEstimate;
+   public final boolean isLarge;
+   public final Supplier<ActiveMQBuffer> largeBodySupplier;
 
    @Override
    public void perform(DataWorker worker) {

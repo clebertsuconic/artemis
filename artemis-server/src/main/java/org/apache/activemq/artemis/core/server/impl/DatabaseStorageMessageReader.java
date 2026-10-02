@@ -265,8 +265,8 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
                      cursorHasMore = false;
                      break;
                   }
-                  MessageData messageData = QueryUtil.readMessageData(resultSet, 1, 2, 3);
-                  Message message = DatabaseStorageManager.decodeMessage(messageData);
+                  MessageData messageData = QueryUtil.readMessageData(resultSet, 1, 2, 3, 4, 5);
+                  Message message = DatabaseStorageManager.decodeMessage(messageData.messageID, messageData.isLarge, messageData.messageBufferSupplier, messageData.largeBodySupplier, databaseStorageManager);
                   if (messageList == null) {
                      messageList = new ArrayList<>();
                   }
@@ -294,7 +294,7 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
                try (Statement statement = getSecondaryConnection().createStatement(); ResultSet blobRecords = statement.executeQuery(sqlProvider.selectMessagesBlob(messagesTable, ids))) {
                   while (blobRecords.next()) {
                      MessageData messageData = QueryUtil.readMessageData(blobRecords, 1, 2, 3);
-                     Message message = DatabaseStorageManager.decodeMessage(messageData);
+                     Message message = DatabaseStorageManager.decodeMessage(messageData.messageID, messageData.isLarge, messageData.messageBufferSupplier, messageData.largeBodySupplier, databaseStorageManager);
                      if (messageList == null) {
                         messageList = new ArrayList<>();
                      }

@@ -24,6 +24,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
@@ -67,6 +68,8 @@ public class MessagesAndReferencesDBQuery {
             int currentMemEst = 0;
             byte[] currentBytes = null;
             List<QueueRef> currentQueues = new ArrayList<>();
+            boolean currentIsLarge = false;
+            byte[] currentLargeBody = null;
 
             while (rs.next()) {
                long messageID   = rs.getLong(1);
@@ -74,6 +77,8 @@ public class MessagesAndReferencesDBQuery {
                Long tx          = rs.wasNull() ? null : txRaw;
                int  memEst      = rs.getInt(3);
                byte[] bytes     = rs.getBytes(4);
+               boolean isLarge  = "Y".equals(rs.getString(7));
+               byte[] largeBody = rs.getBytes(8);
 
                // nullable — LEFT JOIN produces NULL when there are no refs
                long queueIDRaw = rs.getLong(5);
@@ -83,7 +88,7 @@ public class MessagesAndReferencesDBQuery {
                if (messageID != currentID) {
                   // flush the previous message if there is one
                   if (currentID != Long.MIN_VALUE) {
-                     consumer.accept(build(currentID, currentTx, currentMemEst, currentBytes, currentQueues));
+                     consumer.accept(build(currentID, currentTx, currentMemEst, currentBytes, currentLargeBody, currentQueues, currentIsLarge));
                   }
                   // start a new accumulation
                   currentID     = messageID;
@@ -91,6 +96,8 @@ public class MessagesAndReferencesDBQuery {
                   currentMemEst = memEst;
                   currentBytes  = bytes;
                   currentQueues = new ArrayList<>();
+                  currentIsLarge = isLarge;
+                  currentLargeBody = largeBody;
                }
 
                if (hasRef) {
@@ -100,15 +107,20 @@ public class MessagesAndReferencesDBQuery {
 
             // flush the last message
             if (currentID != Long.MIN_VALUE) {
-               consumer.accept(build(currentID, currentTx, currentMemEst, currentBytes, currentQueues));
+               consumer.accept(build(currentID, currentTx, currentMemEst, currentBytes, currentLargeBody, currentQueues, currentIsLarge));
             }
          }
       }
    }
 
    private static MessageDataReferenceMerged build(long messageID, Long tx, int memEst,
-                                                    byte[] bytes, List<QueueRef> queues) {
+                                                    byte[] bytes, byte[] largeBodyBytes, List<QueueRef> queues, boolean isLarge) {
       ActiveMQBuffer buffer = ActiveMQBuffers.wrappedBuffer(bytes);
-      return new MessageDataReferenceMerged(messageID, tx, memEst, () -> buffer, queues);
+      Supplier<ActiveMQBuffer> largeBodyBufferSupplier = null;
+      if (largeBodyBytes != null) {
+         ActiveMQBuffer largeBuffer = ActiveMQBuffers.wrappedBuffer(largeBodyBytes);
+         largeBodyBufferSupplier = () -> largeBuffer;
+      }
+      return new MessageDataReferenceMerged(messageID, tx, memEst, () -> buffer, largeBodyBufferSupplier, queues, isLarge);
    }
 }

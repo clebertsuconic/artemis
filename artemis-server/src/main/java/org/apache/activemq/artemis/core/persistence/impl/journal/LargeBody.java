@@ -31,6 +31,7 @@ import org.apache.activemq.artemis.core.buffers.impl.ChannelBufferWrapper;
 import org.apache.activemq.artemis.core.io.SequentialFile;
 import org.apache.activemq.artemis.core.message.LargeBodyReader;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.impl.database.sequential.MemorySequentialFile;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.LargeServerMessage;
 import org.slf4j.Logger;
@@ -68,6 +69,15 @@ public class LargeBody {
    public LargeBody(LargeServerMessage message, StorageManager storageManager, SequentialFile file) {
       this(message, storageManager);
       this.file = file;
+   }
+
+   public boolean supportsDirectBody() {
+      return file instanceof MemorySequentialFile;
+   }
+
+   public ActiveMQBuffer getBodyBuffer() {
+      assert file instanceof MemorySequentialFile;
+      return ((MemorySequentialFile) file).getData();
    }
 
    public StorageManager getStorageManager() {

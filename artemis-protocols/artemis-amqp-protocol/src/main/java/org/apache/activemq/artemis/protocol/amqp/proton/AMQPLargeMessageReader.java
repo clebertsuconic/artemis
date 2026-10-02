@@ -113,11 +113,7 @@ public class AMQPLargeMessageReader implements MessageReader {
          if (currentMessage == null) {
             final long id = sessionSPI.getStorageManager().generateID();
             AMQPLargeMessage localCurrentMessage;
-            if (sessionSPI.getStorageManager().largeMessagesInline()) {
-               localCurrentMessage = new DatabaseAMQPLargeMessage(id, delivery.getMessageFormat(), sessionSPI.getCoreMessageObjectPools(), sessionSPI.getStorageManager());
-            } else {
-               localCurrentMessage = new AMQPLargeMessage(id, delivery.getMessageFormat(), null, sessionSPI.getCoreMessageObjectPools(), sessionSPI.getStorageManager());
-            }
+            localCurrentMessage = new AMQPLargeMessage(id, delivery.getMessageFormat(), null, sessionSPI.getCoreMessageObjectPools(), sessionSPI.getStorageManager());
             localCurrentMessage.parseHeader(dataBuffer);
 
             sessionSPI.getStorageManager().onLargeMessageCreate(id, localCurrentMessage);

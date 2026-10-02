@@ -145,8 +145,7 @@ public class DescribeNewDatabase {
             tableOut.print(out, new String[]{String.valueOf(data.messageID), txStr, memEstStr, queuesStr, size + " bytes"});
          } else {
             try {
-               Message message = MessagePersister.getInstance().decode(data.messageBufferSupplier.get(), null, null);
-               message.setMessageID(data.messageID);
+               Message message = DatabaseStorageManager.decodeMessage(data.messageID, data.isLarge, data.messageBufferSupplier, data.messageBufferSupplier, null);
                tableOut.print(out, new String[]{String.valueOf(data.messageID), txStr, memEstStr, queuesStr, String.valueOf(message)});
             } catch (Exception e) {
                tableOut.print(out, new String[]{String.valueOf(data.messageID), txStr, memEstStr, queuesStr, "ERROR decoding: " + e.getMessage()});

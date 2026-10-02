@@ -184,6 +184,7 @@ public class FullMessageIntegrationTest extends AbstractStatementTest {
       Queue serverQueue = server.locateQueue(queueName);
       serverQueue.forEach(r -> {
          System.out.println("beforeRestart -> " + r.getMessage() + ", is large = " + r.getMessage().isLargeMessage());
+         Assertions.assertTrue(r.getMessage().isLargeMessage());
       });
 
       Wait.assertEquals(1L, serverQueue::getMessageCount);
@@ -194,6 +195,7 @@ public class FullMessageIntegrationTest extends AbstractStatementTest {
       serverQueue = server.locateQueue(queueName);
       serverQueue.forEach(r -> {
          System.out.println("after restart -> " + r.getMessage() + ", is large = " + r.getMessage().isLargeMessage());
+         Assertions.assertTrue(r.getMessage().isLargeMessage());
       });
 
       try (javax.jms.Connection connection = factory.createConnection()) {
