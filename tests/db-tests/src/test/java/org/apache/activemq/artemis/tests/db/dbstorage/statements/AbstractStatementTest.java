@@ -68,8 +68,6 @@ public class AbstractStatementTest extends ParameterDBTestBase {
    @Parameters(name = "db={0}")
    public static Collection<Object[]> parameters() {
       List<Database> dbList = Database.selectedList();
-      dbList.remove(Database.HSQL); // no HSQL on this test
-
       return convertParameters(dbList);
    }
 
