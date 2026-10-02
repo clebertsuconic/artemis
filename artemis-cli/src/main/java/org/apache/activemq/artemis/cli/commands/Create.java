@@ -706,7 +706,7 @@ public class Create extends InstallAbstract {
 
       if (jdbc) {
          if (jdbcURL == null) {
-            jdbcURL = "jdbc:derby:" + getInstance().getAbsolutePath() + "/data/derby/db;create=true";
+            jdbcURL = "jdbc:h2:file:" + getInstance().getAbsolutePath() + "/data/h2/db";
          }
          filters.put("${jdbcBindings}", jdbcBindings);
          filters.put("${jdbcMessages}", jdbcMessages);

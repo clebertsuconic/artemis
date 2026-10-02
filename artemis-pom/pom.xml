@@ -123,16 +123,11 @@
             <!-- Apache v2.0 License -->
          </dependency>
          <dependency>
-            <groupId>org.apache.derby</groupId>
-            <artifactId>derby</artifactId>
-            <version>${apache.derby.version}</version>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>${h2.version}</version>
             <scope>test</scope>
-         </dependency>
-         <dependency>
-            <groupId>org.apache.derby</groupId>
-            <artifactId>derbytools</artifactId>
-            <version>${apache.derby.version}</version>
-            <scope>test</scope>
+            <!-- MPL 2.0 / EPL 1.0 License -->
          </dependency>
          <dependency>
             <groupId>org.eclipse.paho</groupId>

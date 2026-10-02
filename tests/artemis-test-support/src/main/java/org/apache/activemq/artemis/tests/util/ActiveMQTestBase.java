@@ -487,14 +487,14 @@ public abstract class ActiveMQTestBase extends ArtemisTestCase {
       configuration.setStoreConfiguration(createDefaultDatabaseStorageConfiguration());
    }
 
-   private boolean derbyDropped = false;
+   private boolean embeddedDBDropped = false;
 
-   protected void dropDerby() throws Exception {
-      DBSupportUtil.dropDerbyDatabase(getJDBCUser(), getJDBCPassword(), getEmbeddedDataBaseName());
+   protected void dropEmbeddedDatabases() throws Exception {
+      DBSupportUtil.dropH2Database(getTestJDBCConnectionUrl(), getJDBCUser(), getJDBCPassword());
    }
 
-   protected void shutdownDerby() throws SQLException {
-      DBSupportUtil.shutdownDerby(getJDBCUser(), getJDBCPassword());
+   protected void shutdownEmbeddedDatabases() throws SQLException {
+      DBSupportUtil.shutdownH2(getTestJDBCConnectionUrl(), getJDBCUser(), getJDBCPassword());
    }
 
    protected DatabaseStorageConfiguration createDefaultDatabaseStorageConfiguration() {
@@ -503,14 +503,14 @@ public abstract class ActiveMQTestBase extends ArtemisTestCase {
 
       /*
        * The connectionURI could be passed into the testsuite as a system property (say you are testing against Oracle).
-       *  So, we only schedule the drop on Derby if we are using a derby memory database
+       *  So, we only schedule the drop on H2 if we are using an H2 in-memory database
        */
-      if (connectionURI.contains("derby") && connectionURI.contains("memory") && !derbyDropped) {
+      if (connectionURI.contains("h2") && connectionURI.contains("mem") && !embeddedDBDropped) {
          // some tests will reinitialize the server and call this method more than one time
          // and we should only schedule one task
-         derbyDropped = true;
-         runAfterEx(this::dropDerby);
-         runAfterEx(this::shutdownDerby);
+         embeddedDBDropped = true;
+         runAfterEx(this::dropEmbeddedDatabases);
+         runAfterEx(this::shutdownEmbeddedDatabases);
       }
       dbStorageConfiguration.setJdbcConnectionUrl(connectionURI);
       dbStorageConfiguration.setBindingsTableName("BINDINGS");
@@ -784,23 +784,23 @@ public abstract class ActiveMQTestBase extends ArtemisTestCase {
    }
 
    protected String getEmbeddedDataBaseName() {
-      return "memory:" + getTestDir();
+      return getTestDir();
    }
 
    protected String getTestJDBCConnectionUrl() {
-      return System.getProperty("jdbc.connection.url", "jdbc:derby:" + getEmbeddedDataBaseName() + ";create=true");
+      return System.getProperty("jdbc.connection.url", "jdbc:h2:mem:" + getEmbeddedDataBaseName() + ";DB_CLOSE_DELAY=-1");
    }
 
    protected String getJDBCClassName() {
-      return System.getProperty("jdbc.driver.class", "org.apache.derby.jdbc.EmbeddedDriver");
+      return System.getProperty("jdbc.driver.class", "org.h2.Driver");
    }
 
    protected String getJDBCUser() {
-      return System.getProperty("jdbc.user", null);
+      return System.getProperty("jdbc.user", "SA");
    }
 
    protected String getJDBCPassword() {
-      return System.getProperty("jdbc.password", null);
+      return System.getProperty("jdbc.password", "");
    }
 
    protected final File getTestDirfile() {
