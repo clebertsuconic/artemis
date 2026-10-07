@@ -4405,6 +4405,7 @@ public class PagingTest extends ParameterDBTestBase {
          assertEquals(0, getMessageCount(queue), "Queue someQueue" + i + " was supposed to be empty");
          assertEquals(0, queue.getDeliveringCount(), "Queue someQueue" + i + " was supposed to be empty");
       }
+
    }
 
    @TestTemplate
@@ -4530,6 +4531,11 @@ public class PagingTest extends ParameterDBTestBase {
          producerPaged.send(msg);
       }
       session.commit();
+
+      if (database != Database.JOURNAL) {
+         File pagingFolder = server.getConfiguration().getPagingLocation();
+         assertFalse(pagingFolder.exists() && pagingFolder.list().length > 0, "Paging folder should not exist or be empty when using database storage. check on " + pagingFolder);
+      }
 
       session.close();
 
