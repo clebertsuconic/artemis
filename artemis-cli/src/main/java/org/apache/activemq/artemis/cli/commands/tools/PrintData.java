@@ -112,19 +112,23 @@ public class PrintData extends DBOption {
       Configuration configuration = getParameterConfiguration();
 
       try {
-         if (configuration.isUsingDatabaseStorage()) {
-            printNewDatabase(configuration, context.out);
-         } else if (configuration.isJDBC()) {
-            printDataJDBC(configuration, context.out);
-         } else {
-            printData(new File(getBinding()), new File(getJournal()), new File(getPaging()), context.out, safe, reclaimed, skipBindings, skipJournal, maxPages, ascii);
-         }
+         printData(configuration, context.out);
       } catch (Exception e) {
          treatError(e, "data", "print");
       } finally {
          done();
       }
       return null;
+   }
+
+   public void printData(Configuration configuration, PrintStream out) throws Exception {
+      if (configuration.isUsingDatabaseStorage()) {
+         printNewDatabase(configuration, out);
+      } else if (configuration.isJDBC()) {
+         printDataJDBC(configuration, out);
+      } else {
+         printData(new File(getBinding()), new File(getJournal()), new File(getPaging()), out, safe, reclaimed, skipBindings, skipJournal, maxPages, ascii);
+      }
    }
 
 
