@@ -30,18 +30,13 @@ import org.apache.artemis.database.DatabaseStoreTX;
 import org.apache.artemis.database.data.DBData;
 import org.apache.artemis.database.queries.MessagesPendingDeliverQueryForUpdate;
 import org.apache.artemis.database.statements.DeleteAddressStatement;
-import org.apache.artemis.database.statements.DeleteAllPageRefStatement;
 import org.apache.artemis.database.statements.DeleteGenericDataStatement;
 import org.apache.artemis.database.statements.DeleteMessageStatement;
-import org.apache.artemis.database.statements.DeletePageRefStatement;
-import org.apache.artemis.database.statements.DeletePageStatement;
 import org.apache.artemis.database.statements.DeleteQueueStatement;
 import org.apache.artemis.database.statements.DeleteReferenceStatement;
 import org.apache.artemis.database.statements.InsertAddressStatement;
 import org.apache.artemis.database.statements.InsertGenericDataStatement;
 import org.apache.artemis.database.statements.InsertMessageStatement;
-import org.apache.artemis.database.statements.InsertPageRefStatement;
-import org.apache.artemis.database.statements.InsertPageStatement;
 import org.apache.artemis.database.statements.InsertQueueStatement;
 import org.apache.artemis.database.statements.InsertReferencesStatement;
 import org.apache.artemis.database.statements.UpdateGenericDataStatement;
@@ -57,7 +52,7 @@ public class DataWorker implements Runnable {
 
    protected final DatabaseProvider databaseProvider;
    private final String name;
-   // To be called when the worker is done
+
    private final DataManager dataManager;
    public InsertMessageStatement insertMessageStatement;
    public InsertReferencesStatement insertReferencesStatement;
@@ -68,11 +63,6 @@ public class DataWorker implements Runnable {
    public InsertQueueStatement insertQueueStatement;
    public UpdateQueueStatement updateQueueStatement;
    public DeleteQueueStatement deleteQueueStatement;
-   public InsertPageStatement insertPageStatement;
-   public DeletePageStatement deletePageStatement;
-   public InsertPageRefStatement insertPageRefStatement;
-   public DeletePageRefStatement deletePageRefStatement;
-   public DeleteAllPageRefStatement deleteAllPageRefStatement;
    public InsertGenericDataStatement insertGenericDataStatement;
    public UpdateGenericDataStatement updateGenericDataStatement;
    public DeleteGenericDataStatement deleteGenericDataStatement;
@@ -112,11 +102,6 @@ public class DataWorker implements Runnable {
       insertQueueStatement = new InsertQueueStatement(databaseProvider, connection, batchSize);
       updateQueueStatement = new UpdateQueueStatement(databaseProvider, connection, batchSize);
       deleteQueueStatement = new DeleteQueueStatement(databaseProvider, connection, batchSize);
-      insertPageStatement = new InsertPageStatement(databaseProvider, connection, batchSize);
-      deletePageStatement = new DeletePageStatement(databaseProvider, connection, batchSize);
-      insertPageRefStatement = new InsertPageRefStatement(databaseProvider, connection, batchSize);
-      deletePageRefStatement = new DeletePageRefStatement(databaseProvider, connection, batchSize);
-      deleteAllPageRefStatement = new DeleteAllPageRefStatement(databaseProvider, connection, batchSize);
       insertGenericDataStatement = new InsertGenericDataStatement(databaseProvider, connection, batchSize);
       updateGenericDataStatement = new UpdateGenericDataStatement(databaseProvider, connection, batchSize);
       deleteGenericDataStatement = new DeleteGenericDataStatement(databaseProvider, connection, batchSize);
@@ -231,11 +216,6 @@ public class DataWorker implements Runnable {
       insertQueueStatement.flushPending(false);
       updateQueueStatement.flushPending(false);
       deleteQueueStatement.flushPending(false);
-      insertPageStatement.flushPending(false);
-      deletePageStatement.flushPending(false);
-      insertPageRefStatement.flushPending(false);
-      deletePageRefStatement.flushPending(false);
-      deleteAllPageRefStatement.flushPending(false);
       insertGenericDataStatement.flushPending(false);
       updateGenericDataStatement.flushPending(false);
       deleteGenericDataStatement.flushPending(false);
@@ -255,11 +235,6 @@ public class DataWorker implements Runnable {
       insertQueueStatement.confirmData();
       updateQueueStatement.confirmData();
       deleteQueueStatement.confirmData();
-      insertPageStatement.confirmData();
-      deletePageStatement.confirmData();
-      insertPageRefStatement.confirmData();
-      deletePageRefStatement.confirmData();
-      deleteAllPageRefStatement.confirmData();
       insertGenericDataStatement.confirmData();
       updateGenericDataStatement.confirmData();
       deleteGenericDataStatement.confirmData();
@@ -280,11 +255,6 @@ public class DataWorker implements Runnable {
       insertQueueStatement.onError(exception);
       updateQueueStatement.onError(exception);
       deleteQueueStatement.onError(exception);
-      insertPageStatement.onError(exception);
-      deletePageStatement.onError(exception);
-      insertPageRefStatement.onError(exception);
-      deletePageRefStatement.onError(exception);
-      deleteAllPageRefStatement.onError(exception);
       insertGenericDataStatement.onError(exception);
       updateGenericDataStatement.onError(exception);
       deleteGenericDataStatement.onError(exception);
@@ -303,11 +273,6 @@ public class DataWorker implements Runnable {
       insertQueueStatement.clear();
       updateQueueStatement.clear();
       deleteQueueStatement.clear();
-      insertPageStatement.clear();
-      deletePageStatement.clear();
-      insertPageRefStatement.clear();
-      deletePageRefStatement.clear();
-      deleteAllPageRefStatement.clear();
       insertGenericDataStatement.clear();
       updateGenericDataStatement.clear();
       deleteGenericDataStatement.clear();

@@ -30,10 +30,7 @@ import org.apache.artemis.database.data.MessageDataReferenceMerged;
 import org.apache.artemis.database.queries.AddressJDBCQuery;
 import org.apache.artemis.database.queries.GenericDataJDBCQuery;
 import org.apache.artemis.database.queries.MessagesAndReferencesDBQuery;
-import org.apache.artemis.database.queries.PageJDBCQuery;
-import org.apache.artemis.database.queries.PageRefJDBCQuery;
 import org.apache.artemis.database.queries.QueueJDBCQuery;
-import org.apache.activemq.artemis.spi.core.protocol.MessagePersister;
 
 public class DescribeNewDatabase {
 
@@ -51,10 +48,6 @@ public class DescribeNewDatabase {
          printSection(out, "B R O K E R   D A T A", () -> printGenericData(databaseProvider, connection, out, false));
 
          printSection(out, "M E S S A G E S", () -> printMessages(databaseProvider, connection, out, safe));
-
-         printSection(out, "P A G E S", () -> printPages(databaseProvider, connection, out, safe));
-
-         printSection(out, "P A G E   R E F E R E N C E S", () -> printPageRefs(databaseProvider, connection, out));
       }
    }
 
@@ -170,54 +163,6 @@ public class DescribeNewDatabase {
          sb.append(ref.toString());
       }
       return sb.toString();
-   }
-
-   private static void printPages(DatabaseProvider databaseProvider, Connection connection, PrintStream out, boolean safe) throws Exception {
-      int[] columnSizes = {10, 10, 10, 10, 10, safe ? 10 : 120};
-      TableOut tableOut = new TableOut("|", 2, columnSizes);
-      tableOut.printTopSeparator(out);
-      tableOut.print(out, new String[]{"Address", "Page", "Seq", "Msg ID", "TX", safe ? "Size" : "Message"});
-      tableOut.printSeparator(out);
-
-      AtomicInteger count = new AtomicInteger();
-      PageJDBCQuery query = new PageJDBCQuery(databaseProvider, connection);
-      query.query(data -> {
-         String txStr = data.txID != null ? String.valueOf(data.txID) : "";
-         if (safe) {
-            int size = data.messageBufferSupplier != null ? data.messageBufferSupplier.get().readableBytes() : 0;
-            tableOut.print(out, new String[] {String.valueOf(data.addressID), String.valueOf(data.pageID), String.valueOf(data.pageNR), String.valueOf(data.messageID), txStr, String.valueOf(size)});
-         } else {
-            try {
-               Message message = MessagePersister.getInstance().decode(data.messageBufferSupplier.get(), null, null);
-               message.setMessageID(data.messageID);
-               tableOut.print(out, new String[] {String.valueOf(data.addressID), String.valueOf(data.pageID), String.valueOf(data.pageNR), String.valueOf(data.messageID), txStr, String.valueOf(message)});
-            } catch (Exception e) {
-               tableOut.print(out, new String[] {String.valueOf(data.addressID), String.valueOf(data.pageID), String.valueOf(data.pageNR), String.valueOf(data.messageID), txStr, e.getMessage()});
-            }
-         }
-         count.incrementAndGet();
-      });
-      tableOut.printBottomSeparator(out);
-      out.println("Total pages: " + count.get());
-      out.println();
-   }
-
-   private static void printPageRefs(DatabaseProvider databaseProvider, Connection connection, PrintStream out) throws Exception {
-      int[] columnSizes = {10, 10, 10, 10};
-      TableOut tableOut = new TableOut("|", 2, columnSizes);
-      tableOut.printTopSeparator(out);
-      tableOut.print(out, new String[]{"Address", "Page", "Seq", "Queue"});
-      tableOut.printSeparator(out);
-
-      AtomicInteger count = new AtomicInteger();
-      PageRefJDBCQuery query = new PageRefJDBCQuery(databaseProvider, connection);
-      query.query(data -> {
-         tableOut.print(out, new String[]{String.valueOf(data.addressID), String.valueOf(data.pageID), String.valueOf(data.pageNR), String.valueOf(data.queueID)});
-         count.incrementAndGet();
-      });
-      tableOut.printBottomSeparator(out);
-      out.println("Total page references: " + count.get());
-      out.println();
    }
 
    private static void printGenericData(DatabaseProvider databaseProvider, Connection connection, PrintStream out, boolean bindings) throws Exception {
