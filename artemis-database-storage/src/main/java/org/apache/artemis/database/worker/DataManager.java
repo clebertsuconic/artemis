@@ -53,18 +53,13 @@ import org.apache.artemis.database.DatabaseStoreTX;
 import org.apache.artemis.database.data.AddressData;
 import org.apache.artemis.database.data.DBData;
 import org.apache.artemis.database.data.DeleteAddressData;
-import org.apache.artemis.database.data.DeleteAllPageRefData;
 import org.apache.artemis.database.data.DeleteGenericData;
 import org.apache.artemis.database.data.DeleteMessageData;
-import org.apache.artemis.database.data.DeletePageData;
-import org.apache.artemis.database.data.DeletePageRefData;
 import org.apache.artemis.database.data.DeleteQueueData;
 import org.apache.artemis.database.data.DeleteReferenceData;
 import org.apache.artemis.database.data.GenericData;
 import org.apache.artemis.database.data.MessageData;
 import org.apache.artemis.database.data.MessageReferenceData;
-import org.apache.artemis.database.data.PageData;
-import org.apache.artemis.database.data.PageRefData;
 import org.apache.artemis.database.data.QueueData;
 import org.apache.artemis.database.data.TXDone;
 import org.apache.artemis.database.data.UpdateGenericData;
@@ -384,56 +379,6 @@ public class DataManager extends ActiveMQScheduledComponent {
                                 boolean isAnycast,
                                 IOCompletion callback) {
       castTX(storageTX).addData(new AddressData(id, address, isMulticast, isAnycast, callback));
-   }
-
-   public void storePage(StorageTX storageTX,
-                         long addressID,
-                         long pageID,
-                         long pageNR,
-                         long messageID,
-                         Supplier<ActiveMQBuffer> messageBufferSupplier,
-                         Long txID,
-                         IOCompletion callback) {
-      castTX(storageTX).addData(new PageData(addressID, pageID, pageNR, messageID, messageBufferSupplier, txID, callback));
-   }
-
-   public void storePage(long addressID,
-                         long pageID,
-                         long pageNR,
-                         long messageID,
-                         Supplier<ActiveMQBuffer> messageBufferSupplier,
-                         Long txID,
-                         IOCompletion callback) {
-      flushData(new PageData(addressID, pageID, pageNR, messageID, messageBufferSupplier, txID, callback));
-   }
-
-   public void deletePage(long addressID, long pageID, IOCompletion callback) {
-      flushData(new DeletePageData(addressID, pageID, callback));
-   }
-
-   public void storePageRef(StorageTX storageTX,
-                            long addressID,
-                            long pageID,
-                            long pageNR,
-                            long queueID,
-                            IOCompletion callback) {
-      castTX(storageTX).addData(new PageRefData(addressID, pageID, pageNR, queueID, callback));
-   }
-
-   public void storePageRef(long addressID, long pageID, long pageNR, long queueID, IOCompletion callback) {
-      flushData(new PageRefData(addressID, pageID, pageNR, queueID, callback));
-   }
-
-   public void deletePageRef(long addressID, long pageID, long pageNR, long queueID, IOCompletion callback) {
-      flushData(new DeletePageRefData(addressID, pageID, pageNR, queueID, callback));
-   }
-
-   public void deletePageReferences(StorageTX storageTX, long addressID, long pageID, IOCompletion callback) {
-      castTX(storageTX).addData(new DeleteAllPageRefData(addressID, pageID, callback));
-   }
-
-   public void deletePageReferences(long addressID, long pageID, IOCompletion callback) {
-      flushData(new DeleteAllPageRefData(addressID, pageID, callback));
    }
 
    public void storeGenericData(long id,

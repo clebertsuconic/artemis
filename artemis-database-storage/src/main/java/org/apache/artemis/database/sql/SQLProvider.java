@@ -42,14 +42,6 @@ public abstract class SQLProvider {
       return "DB_QUEUE";
    }
 
-   public String getPage() {
-      return "DB_PAGE";
-   }
-
-   public String getPageRefs() {
-      return "DB_PAGE_REFERENCES";
-   }
-
    public String getBrokerData() {
       return "DB_BROKER_DATA";
    }
@@ -86,26 +78,6 @@ public abstract class SQLProvider {
 
    public String deleteMessages(String tableName, String refs) {
       return String.format("DELETE FROM %s WHERE MESSAGE_ID=? AND NOT EXISTS (SELECT 1 FROM %s WHERE %s.MESSAGE_ID = %s.MESSAGE_ID)", tableName, refs, refs, tableName);
-   }
-
-   public String insertPage(String tableName) {
-      return String.format("INSERT INTO %s (ADDRESS_ID, PAGE_ID, PAGE_NR, MESSAGE_ID, TX_ID, MESSAGE_RECORD) VALUES (?,?,?,?,?,?)", tableName);
-   }
-
-   public String deletePage(String tableName) {
-      return String.format("DELETE FROM %s WHERE ADDRESS_ID=? AND PAGE_ID=?", tableName);
-   }
-
-   public String insertPageReferences(String tableName) {
-      return String.format("INSERT INTO %s (ADDRESS_ID, PAGE_ID, PAGE_NR, QUEUE_ID) VALUES (?,?,?,?)", tableName);
-   }
-
-   public String deletePageReferences(String tableName) {
-      return String.format("DELETE FROM %s WHERE ADDRESS_ID=? AND PAGE_ID=? AND PAGE_NR=? AND QUEUE_ID=?", tableName);
-   }
-
-   public String deleteAllPageReferences(String tableName) {
-      return String.format("DELETE FROM %s WHERE ADDRESS_ID=? AND PAGE_ID=?", tableName);
    }
 
    public String insertAddress(String tableName) {

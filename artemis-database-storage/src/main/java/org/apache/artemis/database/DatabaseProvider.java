@@ -97,8 +97,6 @@ public class DatabaseProvider {
       String referencesTableName = sqlProvider.getRefs();
       String addressInfoTableName = sqlProvider.getAddress();
       String queueInfoTableName = sqlProvider.getQueue();
-      String pageTableName = sqlProvider.getPage();
-      String pageRefsTableName = sqlProvider.getPageRefs();
       String brokerDataTableName = sqlProvider.getBrokerData();
       String configDataTableName = sqlProvider.getConfigData();
 
@@ -107,8 +105,6 @@ public class DatabaseProvider {
          JDBCUtils.createTable(connection, sqlProvider, referencesTableName, sqlProvider.createReferences(referencesTableName));
          JDBCUtils.createTable(connection, sqlProvider, addressInfoTableName, sqlProvider.createAddress(addressInfoTableName));
          JDBCUtils.createTable(connection, sqlProvider, queueInfoTableName, sqlProvider.createQueue(queueInfoTableName));
-         JDBCUtils.createTable(connection, sqlProvider, pageTableName, sqlProvider.createPage(pageTableName));
-         JDBCUtils.createTable(connection, sqlProvider, pageRefsTableName, sqlProvider.createPageReferences(pageRefsTableName));
          JDBCUtils.createTable(connection, sqlProvider, brokerDataTableName, sqlProvider.createGenericData(brokerDataTableName));
          JDBCUtils.createTable(connection, sqlProvider, configDataTableName, sqlProvider.createGenericData(configDataTableName));
       }
