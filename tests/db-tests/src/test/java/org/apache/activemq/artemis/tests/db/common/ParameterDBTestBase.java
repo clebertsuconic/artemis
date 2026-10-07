@@ -159,7 +159,7 @@ public abstract class ParameterDBTestBase extends RealServerTestBase {
             }
             yield 1;
          }
-         default -> dropTables(new String[] {"MESSAGE", "LARGE_MESSAGES", "PAGE_STORE", "NODE_MANAGER", "BINDING", "BINDINGS", "MESSAGES", "DB_MESSAGES", "DB_REFERENCES", "DB_PAGE_DEFINITION", "DB_ADDRESS", "DB_QUEUE", "DB_PAGE", "DB_PAGE_REFERENCES", "DB_BROKER_DATA", "DB_CONFIG_DATA"}, new String[] {"PAGE_STORE", "ART_PAGE"});
+         default -> dropTables(new String[] {"MESSAGE", "LARGE_MESSAGES", "PAGE_STORE", "NODE_MANAGER", "BINDING", "BINDINGS", "MESSAGES", "DB_MESSAGES", "DB_REFERENCES", "DB_PAGE_DEFINITION", "DB_ADDRESS", "DB_QUEUE", "DB_PAGE", "DB_PAGE_REFERENCES", "DB_BROKER_DATA", "DB_CONFIG_DATA", "DB_PREP_TX"}, new String[] {"PAGE_STORE"});
       };
    }
 

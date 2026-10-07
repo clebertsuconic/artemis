@@ -50,6 +50,10 @@ public abstract class SQLProvider {
       return "DB_CONFIG_DATA";
    }
 
+   public String getPrepTx() {
+      return "DB_PREP_TX";
+   }
+
    public abstract String createMessages(String tableName);
 
    public abstract String createReferences(String tableName);
@@ -63,6 +67,20 @@ public abstract class SQLProvider {
    public abstract String createPageReferences(String tableName);
 
    public abstract String createGenericData(String tableName);
+
+   public abstract String createPrepTx(String tableName);
+
+   public String insertPrepTx(String tableName) {
+      return String.format("INSERT INTO %s (TX_ID, XID) VALUES (?,?)", tableName);
+   }
+
+   public String deletePrepTx(String tableName) {
+      return String.format("DELETE FROM %s WHERE TX_ID=?", tableName);
+   }
+
+   public String selectPrepTx(String tableName) {
+      return String.format("SELECT TX_ID, XID FROM %s ORDER BY TX_ID", tableName);
+   }
 
    public String insertMessages(String tableName) {
       return String.format("INSERT INTO %s (MESSAGE_ID, MESSAGE_RECORD, TX_ID, MEMORY_ESTIMATE, IS_LARGE, LARGE_BODY, IS_CORE) VALUES (?,?,?,?,?,?,?)", tableName);

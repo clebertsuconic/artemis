@@ -53,4 +53,9 @@ public class OracleSQLProvider extends SQLProvider {
    public String createGenericData(String tableName) {
       return String.format("CREATE TABLE %s(ID NUMBER(19) NOT NULL, RECORD_TYPE NUMBER(5) NOT NULL, TX_ID NUMBER(19), DATA_RECORD BLOB, PRIMARY KEY (ID))", tableName);
    }
+
+   @Override
+   public String createPrepTx(String tableName) {
+      return String.format("CREATE TABLE %s(TX_ID NUMBER(19) NOT NULL, XID BLOB, PRIMARY KEY (TX_ID))", tableName);
+   }
 }

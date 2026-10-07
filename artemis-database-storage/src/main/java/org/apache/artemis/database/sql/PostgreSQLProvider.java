@@ -53,4 +53,9 @@ public class PostgreSQLProvider extends SQLProvider {
    public String createGenericData(String tableName) {
       return String.format("CREATE TABLE IF NOT EXISTS %s(ID BIGINT NOT NULL, RECORD_TYPE SMALLINT NOT NULL, TX_ID BIGINT, DATA_RECORD BYTEA, PRIMARY KEY (ID))", tableName);
    }
+
+   @Override
+   public String createPrepTx(String tableName) {
+      return String.format("CREATE TABLE IF NOT EXISTS %s(TX_ID BIGINT NOT NULL, XID BYTEA, PRIMARY KEY (TX_ID))", tableName);
+   }
 }

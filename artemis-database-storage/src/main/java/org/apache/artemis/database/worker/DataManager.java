@@ -17,6 +17,7 @@
 
 package org.apache.artemis.database.worker;
 
+import javax.transaction.xa.Xid;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.lang.invoke.MethodHandles;
@@ -41,11 +42,13 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
+import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.activemq.artemis.core.journal.StorageTX;
 import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
 import org.apache.activemq.artemis.utils.TableOut;
+import org.apache.activemq.artemis.utils.XidCodecSupport;
 import org.apache.artemis.database.ActiveMQDatabaseLogger;
 import org.apache.artemis.database.ActiveMQDirectDBBundle;
 import org.apache.artemis.database.DatabaseProvider;
@@ -54,12 +57,14 @@ import org.apache.artemis.database.data.AddressData;
 import org.apache.artemis.database.data.DBData;
 import org.apache.artemis.database.data.DeleteAddressData;
 import org.apache.artemis.database.data.DeleteGenericData;
+import org.apache.artemis.database.data.DeletePrepareTXData;
 import org.apache.artemis.database.data.DeleteMessageData;
 import org.apache.artemis.database.data.DeleteQueueData;
 import org.apache.artemis.database.data.DeleteReferenceData;
 import org.apache.artemis.database.data.GenericData;
 import org.apache.artemis.database.data.MessageData;
 import org.apache.artemis.database.data.MessageReferenceData;
+import org.apache.artemis.database.data.PrepareTXData;
 import org.apache.artemis.database.data.QueueData;
 import org.apache.artemis.database.data.TXDone;
 import org.apache.artemis.database.data.UpdateGenericData;
@@ -387,6 +392,22 @@ public class DataManager extends ActiveMQScheduledComponent {
                                 Supplier<ActiveMQBuffer> dataSupplier,
                                 IOCompletion callback) {
       flushData(new GenericData(id, recordType, txId, dataSupplier, callback));
+   }
+
+   public static ActiveMQBuffer encodeXID(Xid xid) {
+      ActiveMQBuffer xidBuffer = ActiveMQBuffers.fixedBuffer(XidCodecSupport.getXidEncodeLength(xid));
+      XidCodecSupport.encodeXid(xid, xidBuffer);
+      return xidBuffer;
+   }
+
+   public void storePrepareTx(StorageTX storageTX, Xid xid, IOCompletion callback) {
+      DatabaseStoreTX databaseStoreTX = castTX(storageTX);
+      PrepareTXData prepareTXData = new PrepareTXData(databaseStoreTX.getId(), encodeXID(xid), callback);
+      castTX(storageTX).addData(prepareTXData);
+   }
+
+   public void deletePrepareTX(long txId, IOCompletion callback) {
+      flushData(new DeletePrepareTXData(txId, callback));
    }
 
    public void storeGenericData(StorageTX storageTX,

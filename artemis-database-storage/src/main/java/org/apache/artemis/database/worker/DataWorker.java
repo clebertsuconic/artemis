@@ -30,6 +30,7 @@ import org.apache.artemis.database.DatabaseStoreTX;
 import org.apache.artemis.database.data.DBData;
 import org.apache.artemis.database.queries.MessagesPendingDeliverQueryForUpdate;
 import org.apache.artemis.database.statements.DeleteAddressStatement;
+import org.apache.artemis.database.statements.DeletePrepTxStatement;
 import org.apache.artemis.database.statements.DeleteGenericDataStatement;
 import org.apache.artemis.database.statements.DeleteMessageStatement;
 import org.apache.artemis.database.statements.DeleteQueueStatement;
@@ -37,6 +38,7 @@ import org.apache.artemis.database.statements.DeleteReferenceStatement;
 import org.apache.artemis.database.statements.InsertAddressStatement;
 import org.apache.artemis.database.statements.InsertGenericDataStatement;
 import org.apache.artemis.database.statements.InsertMessageStatement;
+import org.apache.artemis.database.statements.InsertPrepTxStatement;
 import org.apache.artemis.database.statements.InsertQueueStatement;
 import org.apache.artemis.database.statements.InsertReferencesStatement;
 import org.apache.artemis.database.statements.UpdateGenericDataStatement;
@@ -69,6 +71,8 @@ public class DataWorker implements Runnable {
    public InsertGenericDataStatement insertBindingsGenericDataStatement;
    public UpdateGenericDataStatement updateBindingsGenericDataStatement;
    public DeleteGenericDataStatement deleteBindingsGenericDataStatement;
+   public InsertPrepTxStatement insertPrepTxStatement;
+   public DeletePrepTxStatement deletePrepTxStatement;
    public MessagesPendingDeliverQueryForUpdate pendingDeliveryQueryForUpdate;
    public ArrayList<DatabaseStoreTX> pendingTX;
    protected Connection connection;
@@ -105,6 +109,8 @@ public class DataWorker implements Runnable {
       insertGenericDataStatement = new InsertGenericDataStatement(databaseProvider, connection, batchSize);
       updateGenericDataStatement = new UpdateGenericDataStatement(databaseProvider, connection, batchSize);
       deleteGenericDataStatement = new DeleteGenericDataStatement(databaseProvider, connection, batchSize);
+      insertPrepTxStatement = new InsertPrepTxStatement(databaseProvider, connection, batchSize);
+      deletePrepTxStatement = new DeletePrepTxStatement(databaseProvider, connection, batchSize);
       String bindingsTable = databaseProvider.getSqlProvider().getConfigData();
       insertBindingsGenericDataStatement = new InsertGenericDataStatement(databaseProvider, connection, batchSize, bindingsTable);
       updateBindingsGenericDataStatement = new UpdateGenericDataStatement(databaseProvider, connection, batchSize, bindingsTable);
@@ -222,6 +228,8 @@ public class DataWorker implements Runnable {
       insertBindingsGenericDataStatement.flushPending(false);
       updateBindingsGenericDataStatement.flushPending(false);
       deleteBindingsGenericDataStatement.flushPending(false);
+      insertPrepTxStatement.flushPending(false);
+      deletePrepTxStatement.flushPending(false);
    }
 
    private void doAfterCommit() {
@@ -241,6 +249,8 @@ public class DataWorker implements Runnable {
       insertBindingsGenericDataStatement.confirmData();
       updateBindingsGenericDataStatement.confirmData();
       deleteBindingsGenericDataStatement.confirmData();
+      insertPrepTxStatement.confirmData();
+      deletePrepTxStatement.confirmData();
       pendingTX.forEach(DatabaseStoreTX::completeIO);
    }
 
@@ -261,6 +271,8 @@ public class DataWorker implements Runnable {
       insertBindingsGenericDataStatement.onError(exception);
       updateBindingsGenericDataStatement.onError(exception);
       deleteBindingsGenericDataStatement.onError(exception);
+      insertPrepTxStatement.onError(exception);
+      deletePrepTxStatement.onError(exception);
    }
 
    private void doCleanup() {
@@ -279,6 +291,8 @@ public class DataWorker implements Runnable {
       insertBindingsGenericDataStatement.clear();
       updateBindingsGenericDataStatement.clear();
       deleteBindingsGenericDataStatement.clear();
+      insertPrepTxStatement.clear();
+      deletePrepTxStatement.clear();
       pendingTX.clear();
       boolean locked = dataManager.acquireLock();
       try {
