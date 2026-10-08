@@ -23,12 +23,11 @@ import org.apache.artemis.database.worker.DataWorker;
 
 public class PrepareTXData extends DBData {
 
-   public final long txId;
    public final ActiveMQBuffer xid;
 
-   public PrepareTXData(long txId, ActiveMQBuffer xid, IOCompletion context) {
+   public PrepareTXData(long tx, ActiveMQBuffer xid, IOCompletion context) {
       super(context);
-      this.txId = txId;
+      this.tx = tx;
       this.xid = xid;
    }
 
@@ -39,6 +38,6 @@ public class PrepareTXData extends DBData {
 
    @Override
    public String toString() {
-      return "PrepareTXData{" + "txId=" + txId + '}';
+      return "PrepareTXData{" + "txId=" + tx + '}';
    }
 }

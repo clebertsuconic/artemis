@@ -29,6 +29,16 @@ public class DatabaseStoreTX implements StorageTX {
    public List<DBData> dataList;
    long txid;
    IOCompletion context;
+   boolean prepared;
+
+   public void beforePrepare() {
+      prepared = true;
+      dataList.forEach(this::beforePrepare);
+   }
+
+   private void beforePrepare(DBData data) {
+      data.setTx(txid);
+   }
 
    public DatabaseStoreTX(long txid) {
       this.txid = txid;

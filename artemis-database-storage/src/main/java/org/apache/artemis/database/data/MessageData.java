@@ -27,7 +27,6 @@ public class MessageData extends DBData {
 
    public final long messageID;
    public final Supplier<ActiveMQBuffer> messageBufferSupplier;
-   public final Long tx;
    public final int memoryEstimate;
    public final boolean isLarge;
    public final boolean isCore;
@@ -35,7 +34,6 @@ public class MessageData extends DBData {
 
    public MessageData(long messageID,
                       Supplier<ActiveMQBuffer> messageBufferSupplier,
-                      Long tx,
                       int memoryEstimate,
                       boolean isLarge,
                       boolean isCore,
@@ -44,7 +42,6 @@ public class MessageData extends DBData {
       super(context);
       this.messageID = messageID;
       this.messageBufferSupplier = messageBufferSupplier;
-      this.tx = tx;
       this.memoryEstimate = memoryEstimate;
       this.isLarge = isLarge;
       this.isCore = isCore;

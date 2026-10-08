@@ -199,13 +199,12 @@ public class DataManager extends ActiveMQScheduledComponent {
 
    public MessageData newMessageTask(long messageID,
                                      Supplier<ActiveMQBuffer> messageBufferSupplier,
-                                     Long txID,
                                      int memoryEstimate,
                                      boolean isLarge,
                                      boolean isCore,
                                      Supplier<ActiveMQBuffer> largeBodySupplier,
                                      IOCompletion context) {
-      return new MessageData(messageID, messageBufferSupplier, txID, memoryEstimate, isLarge, isCore, largeBodySupplier, context);
+      return new MessageData(messageID, messageBufferSupplier, memoryEstimate, isLarge, isCore, largeBodySupplier, context);
    }
 
    public void init() throws SQLException {
@@ -293,24 +292,22 @@ public class DataManager extends ActiveMQScheduledComponent {
    public void storeMessage(StorageTX storageTX,
                             long messageID,
                             Supplier<ActiveMQBuffer> messageBufferSupplier,
-                            Long tx,
                             int memoryEstimate,
                             boolean isLarge,
                             boolean isCore,
                             Supplier<ActiveMQBuffer> largeBodySupplier,
                             IOCompletion callback) {
-      castTX(storageTX).addData(new MessageData(messageID, messageBufferSupplier, tx, memoryEstimate, isLarge, isCore, largeBodySupplier, callback));
+      castTX(storageTX).addData(new MessageData(messageID, messageBufferSupplier, memoryEstimate, isLarge, isCore, largeBodySupplier, callback));
    }
 
    public void storeMessage(long messageID,
                             Supplier<ActiveMQBuffer> messageBufferSupplier,
-                            Long tx,
                             int memoryEstimate,
                             boolean isLarge,
                             boolean isCore,
                             Supplier<ActiveMQBuffer> largeBodySupplier,
                             IOCompletion callback) {
-      flushData(new MessageData(messageID, messageBufferSupplier, tx, memoryEstimate, isLarge, isCore, largeBodySupplier, callback));
+      flushData(new MessageData(messageID, messageBufferSupplier, memoryEstimate, isLarge, isCore, largeBodySupplier, callback));
    }
 
    public void deleteMessage(long messageID, IOCompletion callback) {
@@ -402,6 +399,7 @@ public class DataManager extends ActiveMQScheduledComponent {
 
    public void storePrepareTx(StorageTX storageTX, Xid xid, IOCompletion callback) {
       DatabaseStoreTX databaseStoreTX = castTX(storageTX);
+      databaseStoreTX.beforePrepare();
       PrepareTXData prepareTXData = new PrepareTXData(databaseStoreTX.getId(), encodeXID(xid), callback);
       castTX(storageTX).addData(prepareTXData);
    }

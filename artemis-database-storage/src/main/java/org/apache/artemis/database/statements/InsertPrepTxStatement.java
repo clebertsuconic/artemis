@@ -46,7 +46,7 @@ public class InsertPrepTxStatement extends BatchableStatement<PrepareTXData> {
 
    @Override
    protected void doOne(PrepareTXData task) throws Exception {
-      preparedStatement.setLong(1, task.txId);
+      preparedStatement.setLong(1, task.getTx());
       ActiveMQBuffer xidBuffer = task.xid;
       preparedStatement.setBinaryStream(2, blobInputStream(xidBuffer));
    }

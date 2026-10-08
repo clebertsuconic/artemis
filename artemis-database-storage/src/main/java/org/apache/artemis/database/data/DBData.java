@@ -23,9 +23,18 @@ import org.apache.artemis.database.worker.DataWorker;
 public abstract class DBData {
 
    final IOCompletion context;
+   protected Long tx;
 
    DBData(IOCompletion context) {
       this.context = context;
+   }
+
+   public Long getTx() {
+      return tx;
+   }
+
+   public void setTx(long tx) {
+      this.tx = tx;
    }
 
    public void lineUp() {
