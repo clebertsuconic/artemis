@@ -478,7 +478,14 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public void prepare(Transaction tx, Xid xid) throws Exception {
-      // TBD XA
+      if (xid == null) {
+         throw new IllegalArgumentException("xid is required");
+      }
+      OperationContext context = getContext();
+      context.storeLineUp();
+      dataManager.storePrepareTx(tx.getStorageTx(), xid, context);
+      tx.getStorageTx().setContext(context);
+      dataManager.storeTX(tx.getStorageTx());
    }
 
    @Override

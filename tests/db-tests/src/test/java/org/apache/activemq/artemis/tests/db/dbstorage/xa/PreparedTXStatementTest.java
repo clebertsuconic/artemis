@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.activemq.artemis.tests.db.dbstorage.statements;
+package org.apache.activemq.artemis.tests.db.dbstorage.xa;
 
 import javax.transaction.xa.Xid;
 import java.lang.invoke.MethodHandles;
@@ -27,6 +27,7 @@ import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorageManager;
 import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
 import org.apache.activemq.artemis.tests.db.dbstorage.CountDownCompletion;
+import org.apache.activemq.artemis.tests.db.dbstorage.statements.AbstractStatementTest;
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
 import org.apache.activemq.artemis.utils.XidCodecSupport;
 import org.apache.artemis.database.DatabaseProvider;
@@ -100,4 +101,30 @@ public class PreparedTXStatementTest extends AbstractStatementTest {
          databaseStorageManager.stop();
       }
    }
+
+
+   @TestTemplate
+   public void testTXPrepare() throws Exception {
+      DatabaseStorageManager databaseStorageManager = new DatabaseStorageManager(configuration, criticalAnalyzer, executorFactory, executorFactory, scheduledExecutorService, executorService, null);
+      databaseStorageManager.setContext(null);
+      databaseStorageManager.start();
+      databaseStorageManager.generateID();
+      try {
+         DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
+
+         Xid xid = newXID();
+         TransactionImpl transaction = new TransactionImpl(xid, databaseStorageManager, -1);
+         transaction.setContainsPersistent();
+         transaction.prepare();
+         databaseStorageManager.waitOnOperations();
+
+         try (Connection connection = databaseProvider.getConnection()) {
+            assertEquals(1, selectCount(connection, "DB_PREP_TX"));
+         }
+
+      } finally {
+         databaseStorageManager.stop();
+      }
+   }
+
 }
