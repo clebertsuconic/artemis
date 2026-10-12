@@ -31,10 +31,6 @@ public class DeleteGenericData extends DBData {
       this.bindingsRecord = bindingsRecord;
    }
 
-   public DeleteGenericData(long id, IOCompletion context) {
-      this(id, false, context);
-   }
-
    @Override
    public void perform(DataWorker worker) {
       if (bindingsRecord) {

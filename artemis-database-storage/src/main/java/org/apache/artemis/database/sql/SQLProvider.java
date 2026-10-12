@@ -179,14 +179,6 @@ public abstract class SQLProvider {
       return query;
    }
 
-   public String selectPage(String tableName) {
-      return String.format("SELECT ADDRESS_ID, PAGE_ID, PAGE_NR, MESSAGE_ID, TX_ID, MESSAGE_RECORD FROM %s ORDER BY ADDRESS_ID, PAGE_ID, PAGE_NR", tableName);
-   }
-
-   public String selectPageReferences(String tableName) {
-      return String.format("SELECT ADDRESS_ID, PAGE_ID, PAGE_NR, QUEUE_ID FROM %s ORDER BY ADDRESS_ID, PAGE_ID, PAGE_NR, QUEUE_ID", tableName);
-   }
-
    public String insertGenericData(String tableName) {
       return String.format("INSERT INTO %s (ID, RECORD_TYPE, TX_ID, DATA_RECORD) VALUES (?,?,?,?)", tableName);
    }
@@ -204,7 +196,7 @@ public abstract class SQLProvider {
    }
 
    public String selectGenericData(String tableName) {
-      return String.format("SELECT ID, RECORD_TYPE, TX_ID, DATA_RECORD FROM %s ORDER BY ID", tableName);
+      return String.format("SELECT ID, RECORD_TYPE, TX_ID, DATA_RECORD FROM %s WHERE TX_ID IS NULL ORDER BY ID", tableName);
    }
 
    public String countPagedMessages(Boolean paged) {

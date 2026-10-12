@@ -119,9 +119,11 @@ import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
 import org.apache.artemis.database.DatabaseProvider;
 import org.apache.artemis.database.DatabaseTX;
 import org.apache.artemis.database.data.DBData;
+import org.apache.artemis.database.data.DeleteGenericData;
 import org.apache.artemis.database.data.DeleteMessageData;
 import org.apache.artemis.database.data.DeletePrepareTXData;
 import org.apache.artemis.database.data.DeleteReferenceData;
+import org.apache.artemis.database.data.GenericData;
 import org.apache.artemis.database.data.MessageData;
 import org.apache.artemis.database.data.MessageReferenceData;
 import org.apache.artemis.database.data.PrepareTXData;
@@ -308,12 +310,12 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public void deleteMapRecord(long id, boolean sync) throws Exception {
-      dataManager.deleteGenericData(id, getContext());
+      dataManager.deleteGenericData(id, false, getContext());
    }
 
    @Override
    public void deleteMapRecordTx(long txid, long id) throws Exception {
-      dataManager.deleteGenericData(id, getContext());
+      dataManager.deleteGenericData(id, false, getContext());
    }
 
    private static ActiveMQBuffer encodeGenericRecord(Persister persister, Object record) {
@@ -394,7 +396,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public void deleteDuplicateID(long recordID) throws Exception {
-      dataManager.deleteGenericData(recordID, getContext());
+      dataManager.deleteGenericData(recordID, false, getContext());
    }
 
    private static ActiveMQBuffer encodeDuplicateID(DuplicateIDEncoding encoding) {
@@ -541,6 +543,8 @@ public class DatabaseStorageManager extends AbstractStorageManager {
                rollbackOperations.add(new DeletePrepareTXData(ptx.getTx().getId(), getContext()));
             } else if (data instanceof DeleteReferenceData refDelete) { // the acks
                rollbackOperations.add(new RollbackRefAckData(refDelete.queueID, refDelete.messageID, getContext()));
+            } else if (data instanceof GenericData genericData) { // Duplicate detection, hashMaps...
+               rollbackOperations.add(new DeleteGenericData(genericData.id, false, getContext()));
             }
          }
          dataManager.flushData(rollbackOperations);
@@ -567,7 +571,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public void deleteDuplicateIDTransactional(Transaction tx, long recordID) throws Exception {
-      dataManager.deleteGenericData(tx.getStorageTx(), recordID, getContext());
+      dataManager.deleteGenericData(tx.getStorageTx(), recordID, false, getContext());
    }
 
    @Override
@@ -785,7 +789,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
       if (old != null) {
          long txID = generateID();
          StorageTX storageTX = generateTX(txID);
-         dataManager.deleteGenericData(storageTX, old.getStoreId(), getContext());
+         dataManager.deleteGenericData(storageTX, old.getStoreId(), false, getContext());
          dataManager.storeGenericData(storageTX, recordID, persistedKeyValuePair.getRecordType(), () -> encodeEncodingSupport(persistedKeyValuePair), false, getContext());
          dataManager.storeTX(storageTX);
       } else {
@@ -799,7 +803,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
       if (persistedKeyValuePairs != null) {
          PersistedKeyValuePair old = persistedKeyValuePairs.remove(key);
          if (old != null) {
-            dataManager.deleteGenericData(old.getStoreId(), getContext());
+            dataManager.deleteGenericData(old.getStoreId(), false, getContext());
          }
       }
    }
