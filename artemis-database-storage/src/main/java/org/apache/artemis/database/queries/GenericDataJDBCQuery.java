@@ -26,6 +26,7 @@ import java.util.function.Consumer;
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
 import org.apache.artemis.database.DatabaseProvider;
+import org.apache.artemis.database.DatabaseTX;
 import org.apache.artemis.database.data.GenericData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,15 +38,13 @@ public class GenericDataJDBCQuery {
    Connection connection;
    DatabaseProvider databaseProvider;
    String tableName;
+   boolean bindingsRecord;
 
-   public GenericDataJDBCQuery(DatabaseProvider databaseProvider, Connection connection) {
-      this(databaseProvider, connection, databaseProvider.getSqlProvider().getBrokerData());
-   }
-
-   public GenericDataJDBCQuery(DatabaseProvider databaseProvider, Connection connection, String tableName) {
+   public GenericDataJDBCQuery(DatabaseProvider databaseProvider, Connection connection, String tableName, boolean bindingsRecord) {
       this.databaseProvider = databaseProvider;
       this.connection = connection;
       this.tableName = tableName;
+      this.bindingsRecord = bindingsRecord;
    }
 
    public void query(Consumer<GenericData> consumer) throws Exception {
@@ -58,6 +57,10 @@ public class GenericDataJDBCQuery {
             byte recordType = (byte) resultSet.getShort(2);
             long txIdValue = resultSet.getLong(3);
             Long txId = resultSet.wasNull() ? null : txIdValue;
+            DatabaseTX tx = null;
+            if (txId != null) {
+               tx = new DatabaseTX(txId);
+            }
 
             byte[] bytes = resultSet.getBytes(4);
             ActiveMQBuffer buffer = null;
@@ -66,7 +69,8 @@ public class GenericDataJDBCQuery {
             }
 
             final ActiveMQBuffer finalBuffer = buffer;
-            GenericData data = new GenericData(id, recordType, txId, finalBuffer != null ? () -> finalBuffer : null);
+            GenericData data = new GenericData(id, recordType, finalBuffer != null ? () -> finalBuffer : null, bindingsRecord, null);
+            data.setTx(tx);
             consumer.accept(data);
          }
       }

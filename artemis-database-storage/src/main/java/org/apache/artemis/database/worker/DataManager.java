@@ -401,10 +401,10 @@ public class DataManager extends ActiveMQScheduledComponent {
 
    public void storeGenericData(long id,
                                 byte recordType,
-                                Long txId,
                                 Supplier<ActiveMQBuffer> dataSupplier,
+                                boolean bindings,
                                 IOCompletion callback) {
-      flushData(new GenericData(id, recordType, txId, dataSupplier, callback));
+      flushData(new GenericData(id, recordType, dataSupplier, bindings, callback));
    }
 
    public static ActiveMQBuffer encodeXID(Xid xid) {
@@ -429,10 +429,10 @@ public class DataManager extends ActiveMQScheduledComponent {
    public void storeGenericData(StorageTX storageTX,
                                 long id,
                                 byte recordType,
-                                Long txId,
                                 Supplier<ActiveMQBuffer> dataSupplier,
+                                boolean bindings,
                                 IOCompletion callback) {
-      castTX(storageTX).addData(new GenericData(id, recordType, txId, dataSupplier, callback));
+      castTX(storageTX).addData(new GenericData(id, recordType, dataSupplier, bindings, callback));
    }
 
    public void updateGenericData(long id, Long txId, Supplier<ActiveMQBuffer> dataSupplier, IOCompletion callback) {
@@ -457,19 +457,17 @@ public class DataManager extends ActiveMQScheduledComponent {
 
    public void storeBindingsGenericData(long id,
                                         byte recordType,
-                                        Long txId,
                                         Supplier<ActiveMQBuffer> dataSupplier,
                                         IOCompletion callback) {
-      flushData(new GenericData(id, recordType, txId, dataSupplier, true, callback));
+      flushData(new GenericData(id, recordType, dataSupplier, true, callback));
    }
 
    public void storeBindingsGenericData(StorageTX storageTX,
                                         long id,
                                         byte recordType,
-                                        Long txId,
                                         Supplier<ActiveMQBuffer> dataSupplier,
                                         IOCompletion callback) {
-      castTX(storageTX).addData(new GenericData(id, recordType, txId, dataSupplier, true, callback));
+      castTX(storageTX).addData(new GenericData(id, recordType, dataSupplier, true, callback));
    }
 
    public void updateBindingsGenericData(long id,

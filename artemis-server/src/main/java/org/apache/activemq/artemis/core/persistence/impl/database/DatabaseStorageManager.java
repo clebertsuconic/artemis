@@ -294,7 +294,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
                               Object record,
                               boolean sync,
                               IOCompletion completionCallback) throws Exception {
-      dataManager.storeGenericData(id, recordType, null, () -> encodeGenericRecord(persister, record), completionCallback);
+      dataManager.storeGenericData(id, recordType, () -> encodeGenericRecord(persister, record), false, completionCallback);
    }
 
    @Override
@@ -303,7 +303,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
                               Persister persister,
                               Object record,
                               boolean sync) throws Exception {
-      dataManager.storeGenericData(id, recordType, null, () -> encodeGenericRecord(persister, record), getContext());
+      dataManager.storeGenericData(id, recordType, () -> encodeGenericRecord(persister, record), false, getContext());
    }
 
    @Override
@@ -389,7 +389,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
    @Override
    public void storeDuplicateID(SimpleString address, byte[] duplID, long recordID) throws Exception {
       DuplicateIDEncoding encoding = new DuplicateIDEncoding(address, duplID);
-      dataManager.storeGenericData(recordID, JournalRecordIds.DUPLICATE_ID, null, () -> encodeDuplicateID(encoding), getContext());
+      dataManager.storeGenericData(recordID, JournalRecordIds.DUPLICATE_ID, () -> encodeDuplicateID(encoding), false, getContext());
    }
 
    @Override
@@ -553,7 +553,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
                                              byte[] duplID,
                                              long recordID) throws Exception {
       DuplicateIDEncoding encoding = new DuplicateIDEncoding(address, duplID);
-      dataManager.storeGenericData(tx.getStorageTx(), recordID, JournalRecordIds.DUPLICATE_ID, tx.getID(), () -> encodeDuplicateID(encoding), getContext());
+      dataManager.storeGenericData(tx.getStorageTx(), recordID, JournalRecordIds.DUPLICATE_ID, () -> encodeDuplicateID(encoding), false, getContext());
    }
 
    @Override
@@ -584,10 +584,10 @@ public class DatabaseStorageManager extends AbstractStorageManager {
          long txID = generateID();
          StorageTX storageTX = generateTX(txID);
          dataManager.deleteBindingsGenericData(storageTX, old.getStoreId(), getContext());
-         dataManager.storeBindingsGenericData(storageTX, recordID, addressSetting.getRecordType(), txID, () -> encodeEncodingSupport(addressSetting), getContext());
+         dataManager.storeBindingsGenericData(storageTX, recordID, addressSetting.getRecordType(), () -> encodeEncodingSupport(addressSetting), getContext());
          dataManager.storeTX(storageTX);
       } else {
-         dataManager.storeBindingsGenericData(recordID, addressSetting.getRecordType(), null, () -> encodeEncodingSupport(addressSetting), getContext());
+         dataManager.storeBindingsGenericData(recordID, addressSetting.getRecordType(), () -> encodeEncodingSupport(addressSetting), getContext());
       }
    }
 
@@ -615,10 +615,10 @@ public class DatabaseStorageManager extends AbstractStorageManager {
          long txID = generateID();
          StorageTX storageTX = generateTX(txID);
          dataManager.deleteBindingsGenericData(storageTX, old.getStoreId(), getContext());
-         dataManager.storeBindingsGenericData(storageTX, recordID, persistedRoles.getRecordType(), txID, () -> encodeEncodingSupport(persistedRoles), getContext());
+         dataManager.storeBindingsGenericData(storageTX, recordID, persistedRoles.getRecordType(), () -> encodeEncodingSupport(persistedRoles), getContext());
          dataManager.storeTX(storageTX);
       } else {
-         dataManager.storeBindingsGenericData(recordID, persistedRoles.getRecordType(), null, () -> encodeEncodingSupport(persistedRoles), getContext());
+         dataManager.storeBindingsGenericData(recordID, persistedRoles.getRecordType(), () -> encodeEncodingSupport(persistedRoles), getContext());
       }
    }
 
@@ -631,10 +631,10 @@ public class DatabaseStorageManager extends AbstractStorageManager {
          long txID = generateID();
          StorageTX storageTX = generateTX(txID);
          dataManager.deleteBindingsGenericData(storageTX, old.getStoreId(), getContext());
-         dataManager.storeBindingsGenericData(storageTX, recordID, persistedDivertConfiguration.getRecordType(), txID, () -> encodeEncodingSupport(persistedDivertConfiguration), getContext());
+         dataManager.storeBindingsGenericData(storageTX, recordID, persistedDivertConfiguration.getRecordType(), () -> encodeEncodingSupport(persistedDivertConfiguration), getContext());
          dataManager.storeTX(storageTX);
       } else {
-         dataManager.storeBindingsGenericData(recordID, persistedDivertConfiguration.getRecordType(), null, () -> encodeEncodingSupport(persistedDivertConfiguration), getContext());
+         dataManager.storeBindingsGenericData(recordID, persistedDivertConfiguration.getRecordType(), () -> encodeEncodingSupport(persistedDivertConfiguration), getContext());
       }
    }
 
@@ -670,10 +670,10 @@ public class DatabaseStorageManager extends AbstractStorageManager {
          long txID = generateID();
          StorageTX storageTX = generateTX(txID);
          dataManager.deleteBindingsGenericData(storageTX, old.getStoreId(), getContext());
-         dataManager.storeBindingsGenericData(storageTX, recordID, persistedBridgeConfiguration.getRecordType(), txID, () -> encodeEncodingSupport(persistedBridgeConfiguration), getContext());
+         dataManager.storeBindingsGenericData(storageTX, recordID, persistedBridgeConfiguration.getRecordType(), () -> encodeEncodingSupport(persistedBridgeConfiguration), getContext());
          dataManager.storeTX(storageTX);
       } else {
-         dataManager.storeBindingsGenericData(recordID, persistedBridgeConfiguration.getRecordType(), null, () -> encodeEncodingSupport(persistedBridgeConfiguration), getContext());
+         dataManager.storeBindingsGenericData(recordID, persistedBridgeConfiguration.getRecordType(), () -> encodeEncodingSupport(persistedBridgeConfiguration), getContext());
       }
    }
 
@@ -699,10 +699,10 @@ public class DatabaseStorageManager extends AbstractStorageManager {
          long txID = generateID();
          StorageTX storageTX = generateTX(txID);
          dataManager.deleteBindingsGenericData(storageTX, old.getStoreId(), getContext());
-         dataManager.storeBindingsGenericData(storageTX, recordID, persistedConnector.getRecordType(), txID, () -> encodeEncodingSupport(persistedConnector), getContext());
+         dataManager.storeBindingsGenericData(storageTX, recordID, persistedConnector.getRecordType(), () -> encodeEncodingSupport(persistedConnector), getContext());
          dataManager.storeTX(storageTX);
       } else {
-         dataManager.storeBindingsGenericData(recordID, persistedConnector.getRecordType(), null, () -> encodeEncodingSupport(persistedConnector), getContext());
+         dataManager.storeBindingsGenericData(recordID, persistedConnector.getRecordType(), () -> encodeEncodingSupport(persistedConnector), getContext());
       }
    }
 
@@ -728,10 +728,10 @@ public class DatabaseStorageManager extends AbstractStorageManager {
          long txID = generateID();
          StorageTX storageTX = generateTX(txID);
          dataManager.deleteBindingsGenericData(storageTX, old.getStoreId(), getContext());
-         dataManager.storeBindingsGenericData(storageTX, recordID, persistedUser.getRecordType(), txID, () -> encodeEncodingSupport(persistedUser), getContext());
+         dataManager.storeBindingsGenericData(storageTX, recordID, persistedUser.getRecordType(), () -> encodeEncodingSupport(persistedUser), getContext());
          dataManager.storeTX(storageTX);
       } else {
-         dataManager.storeBindingsGenericData(recordID, persistedUser.getRecordType(), null, () -> encodeEncodingSupport(persistedUser), getContext());
+         dataManager.storeBindingsGenericData(recordID, persistedUser.getRecordType(), () -> encodeEncodingSupport(persistedUser), getContext());
       }
    }
 
@@ -757,10 +757,10 @@ public class DatabaseStorageManager extends AbstractStorageManager {
          long txID = generateID();
          StorageTX storageTX = generateTX(txID);
          dataManager.deleteBindingsGenericData(storageTX, old.getStoreId(), getContext());
-         dataManager.storeBindingsGenericData(storageTX, recordID, persistedRole.getRecordType(), txID, () -> encodeEncodingSupport(persistedRole), getContext());
+         dataManager.storeBindingsGenericData(storageTX, recordID, persistedRole.getRecordType(), () -> encodeEncodingSupport(persistedRole), getContext());
          dataManager.storeTX(storageTX);
       } else {
-         dataManager.storeBindingsGenericData(recordID, persistedRole.getRecordType(), null, () -> encodeEncodingSupport(persistedRole), getContext());
+         dataManager.storeBindingsGenericData(recordID, persistedRole.getRecordType(), () -> encodeEncodingSupport(persistedRole), getContext());
       }
    }
 
@@ -786,10 +786,10 @@ public class DatabaseStorageManager extends AbstractStorageManager {
          long txID = generateID();
          StorageTX storageTX = generateTX(txID);
          dataManager.deleteGenericData(storageTX, old.getStoreId(), getContext());
-         dataManager.storeGenericData(storageTX, recordID, persistedKeyValuePair.getRecordType(), txID, () -> encodeEncodingSupport(persistedKeyValuePair), getContext());
+         dataManager.storeGenericData(storageTX, recordID, persistedKeyValuePair.getRecordType(), () -> encodeEncodingSupport(persistedKeyValuePair), false, getContext());
          dataManager.storeTX(storageTX);
       } else {
-         dataManager.storeGenericData(recordID, persistedKeyValuePair.getRecordType(), null, () -> encodeEncodingSupport(persistedKeyValuePair), getContext());
+         dataManager.storeGenericData(recordID, persistedKeyValuePair.getRecordType(), () -> encodeEncodingSupport(persistedKeyValuePair), false, getContext());
       }
    }
 
@@ -822,7 +822,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public void storeID(long journalID, long id) throws Exception {
-      dataManager.storeBindingsGenericData(journalID, JournalRecordIds.ID_COUNTER_RECORD, null, () -> encodeID(id), getContext());
+      dataManager.storeBindingsGenericData(journalID, JournalRecordIds.ID_COUNTER_RECORD, () -> encodeID(id), getContext());
       waitOnOperations(10_000);
    }
 
@@ -940,7 +940,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
             mapBindings.put(queueConfiguration.getId(), queueBindingEncoding);
          });
 
-         GenericDataJDBCQuery bindingsGenericQuery = new GenericDataJDBCQuery(databaseProvider, connection, databaseProvider.getSqlProvider().getConfigData());
+         GenericDataJDBCQuery bindingsGenericQuery = new GenericDataJDBCQuery(databaseProvider, connection, databaseProvider.getSqlProvider().getConfigData(), true);
          bindingsGenericQuery.query(data -> {
             Object decoded = describeGenericData(data.id, data.recordType, data.dataSupplier != null ? data.dataSupplier.get() : null);
             if (decoded instanceof BatchingIDGenerator.IDCounterEncoding counterEncoding) {
@@ -1047,7 +1047,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
          handleOrphanedMessages(connection);
 
-         GenericDataJDBCQuery genericQuery = new GenericDataJDBCQuery(databaseProvider, connection);
+         GenericDataJDBCQuery genericQuery = new GenericDataJDBCQuery(databaseProvider, connection, databaseProvider.getSqlProvider().getBrokerData(), false);
          genericQuery.query(data -> {
             Object decoded = describeGenericData(data.id, data.recordType, data.dataSupplier != null ? data.dataSupplier.get() : null);
             if (decoded instanceof PersistedKeyValuePair kvp) {
@@ -1086,7 +1086,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
    @Override
    public void addGrouping(GroupBinding groupBinding) throws Exception {
       GroupingEncoding groupingEncoding = new GroupingEncoding(groupBinding.getId(), groupBinding.getGroupId(), groupBinding.getClusterName());
-      dataManager.storeBindingsGenericData(groupBinding.getId(), JournalRecordIds.GROUP_RECORD, null, () -> encodeEncodingSupport(groupingEncoding), getContext());
+      dataManager.storeBindingsGenericData(groupBinding.getId(), JournalRecordIds.GROUP_RECORD, () -> encodeEncodingSupport(groupingEncoding), getContext());
    }
 
    @Override
@@ -1124,7 +1124,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
    @Override
    public long storeQueueStatus(long queueID, AddressQueueStatus status) throws Exception {
       long recordID = generateID();
-      dataManager.storeBindingsGenericData(recordID, JournalRecordIds.QUEUE_STATUS_RECORD, null, () -> encodeEncodingSupport(new QueueStatusEncoding(queueID, status)), getContext());
+      dataManager.storeBindingsGenericData(recordID, JournalRecordIds.QUEUE_STATUS_RECORD, () -> encodeEncodingSupport(new QueueStatusEncoding(queueID, status)), getContext());
       return recordID;
    }
 
@@ -1136,7 +1136,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
    @Override
    public long storeAddressStatus(long addressID, AddressQueueStatus status) throws Exception {
       long recordID = generateID();
-      dataManager.storeBindingsGenericData(recordID, JournalRecordIds.ADDRESS_STATUS_RECORD, null, () -> encodeEncodingSupport(new AddressStatusEncoding(addressID, status)), getContext());
+      dataManager.storeBindingsGenericData(recordID, JournalRecordIds.ADDRESS_STATUS_RECORD, () -> encodeEncodingSupport(new AddressStatusEncoding(addressID, status)), getContext());
       return recordID;
    }
 
