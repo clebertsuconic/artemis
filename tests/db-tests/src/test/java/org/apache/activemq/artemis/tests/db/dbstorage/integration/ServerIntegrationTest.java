@@ -203,7 +203,7 @@ public class ServerIntegrationTest extends AbstractStatementTest {
       ArrayList<BatchingIDGenerator.IDCounterEncoding> list = new ArrayList<>();
       DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
       try (Connection connection = databaseProvider.getConnection()) {
-         GenericDataJDBCQuery query = new GenericDataJDBCQuery(databaseProvider, connection, databaseProvider.getSqlProvider().getConfigData());
+         GenericDataJDBCQuery query = new GenericDataJDBCQuery(databaseProvider, connection, databaseProvider.getSqlProvider().getConfigData(), true);
          query.query(data -> {
             if (data.recordType == JournalRecordIds.ID_COUNTER_RECORD) {
                list.add((BatchingIDGenerator.IDCounterEncoding) DatabaseStorageManager.describeGenericData(data.id, data.recordType, data.dataSupplier != null ? data.dataSupplier.get() : null));

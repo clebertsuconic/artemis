@@ -27,34 +27,19 @@ public class GenericData extends DBData {
 
    public final long id;
    public final byte recordType;
-   public final Long txId;
    public final Supplier<ActiveMQBuffer> dataSupplier;
    public final boolean bindingsRecord;
 
    public GenericData(long id,
                       byte recordType,
-                      Long txId,
                       Supplier<ActiveMQBuffer> dataSupplier,
                       boolean bindingsRecord,
                       IOCompletion context) {
       super(context);
       this.id = id;
       this.recordType = recordType;
-      this.txId = txId;
       this.dataSupplier = dataSupplier;
       this.bindingsRecord = bindingsRecord;
-   }
-
-   public GenericData(long id,
-                      byte recordType,
-                      Long txId,
-                      Supplier<ActiveMQBuffer> dataSupplier,
-                      IOCompletion context) {
-      this(id, recordType, txId, dataSupplier, false, context);
-   }
-
-   public GenericData(long id, byte recordType, Long txId, Supplier<ActiveMQBuffer> dataSupplier) {
-      this(id, recordType, txId, dataSupplier, false, null);
    }
 
    @Override
@@ -68,6 +53,6 @@ public class GenericData extends DBData {
 
    @Override
    public String toString() {
-      return "GenericData{" + "id=" + id + ", recordType=" + recordType + ", txId=" + txId + ", bindings=" + bindingsRecord + '}';
+      return "GenericData{" + "id=" + id + ", recordType=" + recordType + ", txId=" + tx + ", bindings=" + bindingsRecord + '}';
    }
 }

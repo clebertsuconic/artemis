@@ -101,7 +101,9 @@ public class DBXAIntegrationTest extends AbstractStatementTest {
 
             xaSession.getXAResource().start(xid, XAResource.TMNOFLAGS);
             for (int i = 0; i < NUM_MESSAGES; i++) {
-               producer.send(xaSession.createTextMessage("message-" + i));
+               TextMessage message = xaSession.createTextMessage("message-" + i);
+               message.setStringProperty("_AMQ_DUPL_ID", "DUP-" + i);
+               producer.send(message);
             }
             xaSession.getXAResource().end(xid, XAResource.TMSUCCESS);
             xaSession.getXAResource().prepare(xid);

@@ -105,4 +105,8 @@ public class DatabaseTX implements StorageTX {
       return dataList == null || dataList.isEmpty();
    }
 
+   @Override
+   public String toString() {
+      return "DatabaseTX{txid=" + txid + ", status=" + status + '}';
+   }
 }

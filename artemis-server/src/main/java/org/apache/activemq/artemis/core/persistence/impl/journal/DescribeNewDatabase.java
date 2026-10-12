@@ -114,34 +114,32 @@ public class DescribeNewDatabase {
    }
 
    private static void printMessages(DatabaseProvider databaseProvider, Connection connection, PrintStream out, boolean safe) throws Exception {
-      int[] columnSizes = {10, 10, 10, 15, 120};
+      int[] columnSizes = {10, 10, 15, 130};
       TableOut tableOut = new TableOut("|", 2, columnSizes);
       tableOut.printTopSeparator(out);
       @SuppressWarnings("unchecked")
       java.util.List<String>[] header = new java.util.List[columnSizes.length];
       header[0] = java.util.List.of("ID");
-      header[1] = java.util.List.of("TX");
-      header[2] = java.util.List.of("Memory", "Estimate");
-      header[3] = java.util.List.of("Queues", "* = Paged");
-      header[4] = java.util.List.of(safe ? "Size" : "Message");
+      header[1] = java.util.List.of("Memory", "Estimate");
+      header[2] = java.util.List.of("Queues", "* = Paged");
+      header[3] = java.util.List.of(safe ? "Size" : "Message");
       tableOut.print(out, header);
       tableOut.printSeparator(out);
 
       AtomicInteger count = new AtomicInteger();
       MessagesAndReferencesDBQuery query = new MessagesAndReferencesDBQuery(databaseProvider, connection);
       query.query(data -> {
-         String txStr = data.tx() != null ? String.valueOf(data.tx()) : "";
          String memEstStr = String.valueOf(data.memoryEstimate());
          String queuesStr = formatQueues(data);
          if (safe) {
             int size = data.messageBufferSupplier() != null ? data.messageBufferSupplier().get().readableBytes() : 0;
-            tableOut.print(out, new String[]{String.valueOf(data.messageID()), txStr, memEstStr, queuesStr, size + " bytes"});
+            tableOut.print(out, new String[]{String.valueOf(data.messageID()), memEstStr, queuesStr, size + " bytes"});
          } else {
             try {
                Message message = DatabaseStorageManager.decodeMessage(data.messageID(), data.isLarge(), data.isCore(), data.messageBufferSupplier(), data.messageBufferSupplier(), null);
-               tableOut.print(out, new String[]{String.valueOf(data.messageID()), txStr, memEstStr, queuesStr, String.valueOf(message)});
+               tableOut.print(out, new String[]{String.valueOf(data.messageID()), memEstStr, queuesStr, String.valueOf(message)});
             } catch (Exception e) {
-               tableOut.print(out, new String[]{String.valueOf(data.messageID()), txStr, memEstStr, queuesStr, "ERROR decoding: " + e.getMessage()});
+               tableOut.print(out, new String[]{String.valueOf(data.messageID()), memEstStr, queuesStr, "ERROR decoding: " + e.getMessage()});
             }
          }
          count.incrementAndGet();
@@ -168,20 +166,20 @@ public class DescribeNewDatabase {
    private static void printGenericData(DatabaseProvider databaseProvider, Connection connection, PrintStream out, boolean bindings) throws Exception {
       String tableName = bindings ? databaseProvider.getSqlProvider().getConfigData() : databaseProvider.getSqlProvider().getBrokerData();
 
-      int[] columnSizes = {10, 40, 10, 80};
+      int[] columnSizes = {10, 26, 130};
       TableOut tableOut = new TableOut("|", 2, columnSizes);
       tableOut.printTopSeparator(out);
-      tableOut.print(out, new String[]{"ID", "Record Type", "TX", "Decoded"});
+      tableOut.print(out, new String[]{"ID", "Record Type", "Decoded"});
       tableOut.printSeparator(out);
 
       AtomicInteger count = new AtomicInteger();
-      GenericDataJDBCQuery query = new GenericDataJDBCQuery(databaseProvider, connection, tableName);
+      GenericDataJDBCQuery query = new GenericDataJDBCQuery(databaseProvider, connection, tableName, bindings);
       query.query(data -> {
          Object decoded = DatabaseStorageManager.describeGenericData(data.id, data.recordType, data.dataSupplier != null ? data.dataSupplier.get() : null);
-         String txStr = data.txId != null ? String.valueOf(data.txId) : "";
+
          String decodedStr = decoded != null ? decoded.toString() : "UNKNOWN(type=" + data.recordType + ")";
          String typeStr = data.recordType + " (" + JournalRecordIds.recordTypeName(data.recordType) + ")";
-         tableOut.print(out, new String[]{String.valueOf(data.id), typeStr, txStr, decodedStr});
+         tableOut.print(out, new String[]{String.valueOf(data.id), typeStr, decodedStr});
          count.incrementAndGet();
       });
       tableOut.printBottomSeparator(out);

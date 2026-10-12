@@ -50,8 +50,8 @@ public class InsertGenericDataStatement extends BatchableStatement<GenericData> 
    protected void doOne(GenericData task) throws Exception {
       preparedStatement.setLong(1, task.id);
       preparedStatement.setShort(2, task.recordType);
-      if (task.txId != null) {
-         preparedStatement.setLong(3, task.txId);
+      if (task.getTx() != null) {
+         preparedStatement.setLong(3, task.getTx().getId());
       } else {
          preparedStatement.setNull(3, Types.NUMERIC);
       }
