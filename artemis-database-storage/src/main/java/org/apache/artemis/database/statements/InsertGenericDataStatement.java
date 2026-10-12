@@ -24,6 +24,7 @@ import java.sql.Types;
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.artemis.database.DatabaseProvider;
 import org.apache.artemis.database.data.GenericData;
+import org.apache.artemis.database.data.TXStatus;
 
 public class InsertGenericDataStatement extends BatchableStatement<GenericData> {
 
@@ -50,7 +51,7 @@ public class InsertGenericDataStatement extends BatchableStatement<GenericData> 
    protected void doOne(GenericData task) throws Exception {
       preparedStatement.setLong(1, task.id);
       preparedStatement.setShort(2, task.recordType);
-      if (task.getTx() != null) {
+      if (task.getTx() != null && task.getTx().getStatus() == TXStatus.preparing) {
          preparedStatement.setLong(3, task.getTx().getId());
       } else {
          preparedStatement.setNull(3, Types.NUMERIC);

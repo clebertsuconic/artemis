@@ -42,6 +42,7 @@ import org.apache.artemis.database.statements.InsertPrepTxStatement;
 import org.apache.artemis.database.statements.InsertQueueStatement;
 import org.apache.artemis.database.statements.InsertReferencesStatement;
 import org.apache.artemis.database.statements.UpdateGenericDataStatement;
+import org.apache.artemis.database.statements.UpdateTXGenericDataStatement;
 import org.apache.artemis.database.statements.UpdateQueueStatement;
 import org.apache.artemis.database.statements.UpdateTXMessageStatement;
 import org.apache.artemis.database.statements.UpdateAckTXReferenceStatement;
@@ -70,6 +71,7 @@ public class DataWorker implements Runnable {
    public DeleteQueueStatement deleteQueueStatement;
    public InsertGenericDataStatement insertGenericDataStatement;
    public UpdateGenericDataStatement updateGenericDataStatement;
+   public UpdateTXGenericDataStatement updateTXGenericDataStatement;
    public DeleteGenericDataStatement deleteGenericDataStatement;
    public InsertGenericDataStatement insertBindingsGenericDataStatement;
    public UpdateGenericDataStatement updateBindingsGenericDataStatement;
@@ -114,6 +116,7 @@ public class DataWorker implements Runnable {
       deleteQueueStatement = new DeleteQueueStatement(databaseProvider, connection, batchSize);
       insertGenericDataStatement = new InsertGenericDataStatement(databaseProvider, connection, batchSize);
       updateGenericDataStatement = new UpdateGenericDataStatement(databaseProvider, connection, batchSize);
+      updateTXGenericDataStatement = new UpdateTXGenericDataStatement(databaseProvider, connection, batchSize);
       deleteGenericDataStatement = new DeleteGenericDataStatement(databaseProvider, connection, batchSize);
       updateTXMessageStatement = new UpdateTXMessageStatement(databaseProvider, connection, batchSize);
       updateTXReferenceStatement = new UpdateTXReferenceStatement(databaseProvider, connection, batchSize);
@@ -236,6 +239,7 @@ public class DataWorker implements Runnable {
       deleteQueueStatement.flushPending(false);
       insertGenericDataStatement.flushPending(false);
       updateGenericDataStatement.flushPending(false);
+      updateTXGenericDataStatement.flushPending(false);
       deleteGenericDataStatement.flushPending(false);
       insertBindingsGenericDataStatement.flushPending(false);
       updateBindingsGenericDataStatement.flushPending(false);
@@ -260,6 +264,7 @@ public class DataWorker implements Runnable {
       deleteQueueStatement.confirmData();
       insertGenericDataStatement.confirmData();
       updateGenericDataStatement.confirmData();
+      updateTXGenericDataStatement.confirmData();
       deleteGenericDataStatement.confirmData();
       insertBindingsGenericDataStatement.confirmData();
       updateBindingsGenericDataStatement.confirmData();
@@ -285,6 +290,7 @@ public class DataWorker implements Runnable {
       deleteQueueStatement.onError(exception);
       insertGenericDataStatement.onError(exception);
       updateGenericDataStatement.onError(exception);
+      updateTXGenericDataStatement.onError(exception);
       deleteGenericDataStatement.onError(exception);
       insertBindingsGenericDataStatement.onError(exception);
       updateBindingsGenericDataStatement.onError(exception);
@@ -308,6 +314,7 @@ public class DataWorker implements Runnable {
       deleteQueueStatement.clear();
       insertGenericDataStatement.clear();
       updateGenericDataStatement.clear();
+      updateTXGenericDataStatement.clear();
       deleteGenericDataStatement.clear();
       insertBindingsGenericDataStatement.clear();
       updateBindingsGenericDataStatement.clear();

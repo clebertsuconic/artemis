@@ -47,7 +47,11 @@ public class GenericData extends DBData {
       if (bindingsRecord) {
          worker.insertBindingsGenericDataStatement.addElement(this, context);
       } else {
-         worker.insertGenericDataStatement.addElement(this, context);
+         if (tx != null && tx.getStatus() == TXStatus.twoPhaseCommitting) {
+            worker.updateTXGenericDataStatement.addElement(this, context);
+         } else {
+            worker.insertGenericDataStatement.addElement(this, context);
+         }
       }
    }
 

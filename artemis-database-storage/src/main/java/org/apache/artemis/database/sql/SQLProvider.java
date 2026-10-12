@@ -195,6 +195,10 @@ public abstract class SQLProvider {
       return String.format("UPDATE %s SET DATA_RECORD=?, TX_ID=? WHERE ID=?", tableName);
    }
 
+   public String updateGenericDataTx(String tableName) {
+      return String.format("UPDATE %s SET TX_ID = NULL WHERE ID = ?", tableName);
+   }
+
    public String deleteGenericData(String tableName) {
       return String.format("DELETE FROM %s WHERE ID=?", tableName);
    }
