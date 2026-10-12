@@ -50,8 +50,8 @@ public class InsertMessageStatement extends BatchableStatement<MessageData> {
       ActiveMQBuffer buffer = task.messageBufferSupplier.get();
       preparedStatement.setLong(1, task.messageID);
       preparedStatement.setBinaryStream(2, blobInputStream(buffer));
-      if (task.tx != null) {
-         preparedStatement.setLong(3, task.tx);
+      if (task.getTx() != null && task.getTx().isPreparing()) {
+         preparedStatement.setLong(3, task.getTx().getId());
       } else {
          preparedStatement.setNull(3, Types.NUMERIC);
       }

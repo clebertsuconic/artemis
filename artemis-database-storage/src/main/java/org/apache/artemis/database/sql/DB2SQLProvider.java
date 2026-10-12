@@ -26,7 +26,7 @@ public class DB2SQLProvider extends SQLProvider {
 
    @Override
    public String createReferences(String tableName) {
-      return String.format("CREATE TABLE IF NOT EXISTS %s(MESSAGE_ID BIGINT NOT NULL, QUEUE_ID BIGINT NOT NULL, PAGED CHAR NOT NULL, TX_ID BIGINT, PRIMARY KEY (MESSAGE_ID, QUEUE_ID))", tableName);
+      return String.format("CREATE TABLE IF NOT EXISTS %s(MESSAGE_ID BIGINT NOT NULL, QUEUE_ID BIGINT NOT NULL, PAGED CHAR NOT NULL, TX_ID BIGINT, ACK_TX_ID BIGINT, PRIMARY KEY (MESSAGE_ID, QUEUE_ID))", tableName);
    }
 
    @Override
@@ -52,5 +52,10 @@ public class DB2SQLProvider extends SQLProvider {
    @Override
    public String createGenericData(String tableName) {
       return String.format("CREATE TABLE IF NOT EXISTS %s(ID BIGINT NOT NULL, RECORD_TYPE SMALLINT NOT NULL, TX_ID BIGINT, DATA_RECORD BLOB, PRIMARY KEY (ID))", tableName);
+   }
+
+   @Override
+   public String createPrepTx(String tableName) {
+      return String.format("CREATE TABLE IF NOT EXISTS %s(TX_ID BIGINT NOT NULL, XID BLOB, PRIMARY KEY (TX_ID))", tableName);
    }
 }

@@ -117,7 +117,16 @@ import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.activemq.artemis.utils.IDGenerator;
 import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
 import org.apache.artemis.database.DatabaseProvider;
-import org.apache.artemis.database.DatabaseStoreTX;
+import org.apache.artemis.database.DatabaseTX;
+import org.apache.artemis.database.data.DBData;
+import org.apache.artemis.database.data.DeleteMessageData;
+import org.apache.artemis.database.data.DeletePrepareTXData;
+import org.apache.artemis.database.data.DeleteReferenceData;
+import org.apache.artemis.database.data.MessageData;
+import org.apache.artemis.database.data.MessageReferenceData;
+import org.apache.artemis.database.data.PrepareTXData;
+import org.apache.artemis.database.data.RollbackRefAckData;
+import org.apache.artemis.database.data.TXStatus;
 import org.apache.artemis.database.queries.AddressJDBCQuery;
 import org.apache.artemis.database.queries.CountPagedMessageQuery;
 import org.apache.artemis.database.queries.GenericDataJDBCQuery;
@@ -261,7 +270,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public StorageTX generateTX(long tx) {
-      return new DatabaseStoreTX(tx);
+      return new DatabaseTX(tx);
    }
 
    public IDGenerator getIDGenerator() {
@@ -317,7 +326,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
    @Override
    public void storeMessage(Message message) throws Exception {
       boolean isCore = message instanceof CoreMessage;
-      dataManager.storeMessage(message.getMessageID(), () -> encodeMessage(message), null, message.getMemoryEstimate(), message.isLargeMessage(), isCore, () -> getLargeBody(message), getContext());
+      dataManager.storeMessage(message.getMessageID(), () -> encodeMessage(message), message.getMemoryEstimate(), message.isLargeMessage(), isCore, () -> getLargeBody(message), getContext());
    }
 
    public static ActiveMQBuffer getLargeBody(Message message) {
@@ -411,7 +420,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
    @Override
    public void storeMessageTransactional(Transaction tx, Message message) throws Exception {
       boolean isCore = message instanceof CoreMessage;
-      dataManager.storeMessage(tx.getStorageTx(), message.getMessageID(), () -> encodeMessage(message), tx.getID(), message.getMemoryEstimate(), message.isLargeMessage(), isCore, () -> getLargeBody(message), getContext());
+      dataManager.storeMessage(tx.getStorageTx(), message.getMessageID(), () -> encodeMessage(message), message.getMemoryEstimate(), message.isLargeMessage(), isCore, () -> getLargeBody(message), getContext());
    }
 
    @Override
@@ -478,7 +487,14 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public void prepare(Transaction tx, Xid xid) throws Exception {
-      // TBD XA
+      if (xid == null) {
+         throw new IllegalArgumentException("xid is required");
+      }
+      OperationContext context = getContext();
+      context.storeLineUp();
+      dataManager.storePrepareTx(tx.getStorageTx(), xid, context);
+      tx.getStorageTx().setContext(context);
+      dataManager.storeTX(tx.getStorageTx());
    }
 
    @Override
@@ -498,6 +514,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public void commit(Transaction tx, boolean lineUpContext) throws Exception {
+      tx.getStorageTx().beforeIO();
       OperationContext context = getContext();
       context.storeLineUp();
       tx.getStorageTx().setContext(context);
@@ -511,7 +528,23 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public void rollback(Transaction tx) throws Exception {
-      // TBD I don't think anything is needed
+      DatabaseTX databaseTX = (DatabaseTX) tx.getStorageTx();
+
+      if (databaseTX.getStatus() == TXStatus.prepared) {
+         List<DBData> rollbackOperations = new ArrayList<>();
+         for (DBData data : databaseTX.dataList) {
+            if (data instanceof MessageData msg) {
+               rollbackOperations.add(new DeleteMessageData(msg.messageID, getContext()));
+            } else if (data instanceof MessageReferenceData ref) {
+               rollbackOperations.add(new DeleteReferenceData(ref.queueID, ref.messageID, getContext()));
+            } else if (data instanceof PrepareTXData ptx) {
+               rollbackOperations.add(new DeletePrepareTXData(ptx.getTx().getId(), getContext()));
+            } else if (data instanceof DeleteReferenceData refDelete) { // the acks
+               rollbackOperations.add(new RollbackRefAckData(refDelete.queueID, refDelete.messageID, getContext()));
+            }
+         }
+         dataManager.flushData(rollbackOperations);
+      }
    }
 
    @Override

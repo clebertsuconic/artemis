@@ -17,6 +17,7 @@
 
 package org.apache.artemis.database.worker;
 
+import javax.transaction.xa.Xid;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.lang.invoke.MethodHandles;
@@ -41,27 +42,32 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
+import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.activemq.artemis.core.journal.StorageTX;
 import org.apache.activemq.artemis.core.server.ActiveMQScheduledComponent;
 import org.apache.activemq.artemis.utils.TableOut;
+import org.apache.activemq.artemis.utils.XidCodecSupport;
 import org.apache.artemis.database.ActiveMQDatabaseLogger;
 import org.apache.artemis.database.ActiveMQDirectDBBundle;
 import org.apache.artemis.database.DatabaseProvider;
-import org.apache.artemis.database.DatabaseStoreTX;
+import org.apache.artemis.database.DatabaseTX;
 import org.apache.artemis.database.data.AddressData;
 import org.apache.artemis.database.data.DBData;
 import org.apache.artemis.database.data.DeleteAddressData;
 import org.apache.artemis.database.data.DeleteGenericData;
+import org.apache.artemis.database.data.DeletePrepareTXData;
 import org.apache.artemis.database.data.DeleteMessageData;
 import org.apache.artemis.database.data.DeleteQueueData;
 import org.apache.artemis.database.data.DeleteReferenceData;
 import org.apache.artemis.database.data.GenericData;
 import org.apache.artemis.database.data.MessageData;
 import org.apache.artemis.database.data.MessageReferenceData;
+import org.apache.artemis.database.data.PrepareTXData;
 import org.apache.artemis.database.data.QueueData;
 import org.apache.artemis.database.data.TXDone;
+import org.apache.artemis.database.data.TXStatus;
 import org.apache.artemis.database.data.UpdateGenericData;
 import org.apache.artemis.database.data.UpdateQueueData;
 import org.slf4j.Logger;
@@ -194,13 +200,12 @@ public class DataManager extends ActiveMQScheduledComponent {
 
    public MessageData newMessageTask(long messageID,
                                      Supplier<ActiveMQBuffer> messageBufferSupplier,
-                                     Long txID,
                                      int memoryEstimate,
                                      boolean isLarge,
                                      boolean isCore,
                                      Supplier<ActiveMQBuffer> largeBodySupplier,
                                      IOCompletion context) {
-      return new MessageData(messageID, messageBufferSupplier, txID, memoryEstimate, isLarge, isCore, largeBodySupplier, context);
+      return new MessageData(messageID, messageBufferSupplier, memoryEstimate, isLarge, isCore, largeBodySupplier, context);
    }
 
    public void init() throws SQLException {
@@ -252,6 +257,21 @@ public class DataManager extends ActiveMQScheduledComponent {
       dataLock.release();
    }
 
+   public void flushData(List<DBData> dbData) {
+      if (!acquireLock()) {
+         return;
+      }
+      try {
+         dbData.forEach(DBData::lineUp);
+         pendingData.addAll(dbData);
+         addCredit(dbData.size() + 1);
+      } finally {
+         releaseLock();
+      }
+      delay();
+   }
+
+
    private void flushData(List<DBData> dbData, StorageTX storageTX) {
       if (!acquireLock()) {
          return;
@@ -259,7 +279,7 @@ public class DataManager extends ActiveMQScheduledComponent {
       try {
          dbData.forEach(DBData::lineUp);
          pendingData.addAll(dbData);
-         pendingData.add(new TXDone((DatabaseStoreTX) storageTX));
+         pendingData.add(new TXDone((DatabaseTX) storageTX));
          addCredit(dbData.size() + 1);
       } finally {
          releaseLock();
@@ -281,31 +301,29 @@ public class DataManager extends ActiveMQScheduledComponent {
       delay();
    }
 
-   private DatabaseStoreTX castTX(StorageTX storageTX) {
-      return (DatabaseStoreTX) storageTX;
+   public static DatabaseTX castTX(StorageTX storageTX) {
+      return (DatabaseTX) storageTX;
    }
 
    public void storeMessage(StorageTX storageTX,
                             long messageID,
                             Supplier<ActiveMQBuffer> messageBufferSupplier,
-                            Long tx,
                             int memoryEstimate,
                             boolean isLarge,
                             boolean isCore,
                             Supplier<ActiveMQBuffer> largeBodySupplier,
                             IOCompletion callback) {
-      castTX(storageTX).addData(new MessageData(messageID, messageBufferSupplier, tx, memoryEstimate, isLarge, isCore, largeBodySupplier, callback));
+      castTX(storageTX).addData(new MessageData(messageID, messageBufferSupplier, memoryEstimate, isLarge, isCore, largeBodySupplier, callback));
    }
 
    public void storeMessage(long messageID,
                             Supplier<ActiveMQBuffer> messageBufferSupplier,
-                            Long tx,
                             int memoryEstimate,
                             boolean isLarge,
                             boolean isCore,
                             Supplier<ActiveMQBuffer> largeBodySupplier,
                             IOCompletion callback) {
-      flushData(new MessageData(messageID, messageBufferSupplier, tx, memoryEstimate, isLarge, isCore, largeBodySupplier, callback));
+      flushData(new MessageData(messageID, messageBufferSupplier, memoryEstimate, isLarge, isCore, largeBodySupplier, callback));
    }
 
    public void deleteMessage(long messageID, IOCompletion callback) {
@@ -387,6 +405,25 @@ public class DataManager extends ActiveMQScheduledComponent {
                                 Supplier<ActiveMQBuffer> dataSupplier,
                                 IOCompletion callback) {
       flushData(new GenericData(id, recordType, txId, dataSupplier, callback));
+   }
+
+   public static ActiveMQBuffer encodeXID(Xid xid) {
+      ActiveMQBuffer xidBuffer = ActiveMQBuffers.fixedBuffer(XidCodecSupport.getXidEncodeLength(xid));
+      XidCodecSupport.encodeXid(xid, xidBuffer);
+      return xidBuffer;
+   }
+
+   public void storePrepareTx(StorageTX storageTX, Xid xid, IOCompletion callback) {
+      DatabaseTX databaseTX = castTX(storageTX);
+      assert databaseTX.getStatus() == null;
+      databaseTX.setStatus(TXStatus.preparing);
+      databaseTX.beforeIO();
+      PrepareTXData prepareTXData = new PrepareTXData(databaseTX, encodeXID(xid), callback);
+      databaseTX.addData(prepareTXData);
+   }
+
+   public void deletePrepareTX(long txId, IOCompletion callback) {
+      flushData(new DeletePrepareTXData(txId, callback));
    }
 
    public void storeGenericData(StorageTX storageTX,

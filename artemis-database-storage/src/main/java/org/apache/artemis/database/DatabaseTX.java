@@ -17,21 +17,39 @@
 
 package org.apache.artemis.database;
 
+import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.activemq.artemis.core.journal.StorageTX;
 import org.apache.artemis.database.data.DBData;
+import org.apache.artemis.database.data.TXStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class DatabaseStoreTX implements StorageTX {
+public class DatabaseTX implements StorageTX {
+
+   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    public List<DBData> dataList;
    long txid;
    IOCompletion context;
+   TXStatus status;
 
-   public DatabaseStoreTX(long txid) {
+   public DatabaseTX(long txid) {
       this.txid = txid;
+   }
+
+   @Override
+   public void beforeIO() {
+      if (status == null) {
+         status = TXStatus.onePhaseCommitting;
+      } else {
+         if (status == TXStatus.prepared) {
+            this.setStatus(TXStatus.twoPhaseCommitting);
+         }
+      }
    }
 
    @Override
@@ -39,10 +57,28 @@ public class DatabaseStoreTX implements StorageTX {
       return txid;
    }
 
+   public TXStatus getStatus() {
+      return status;
+   }
+
+   public void setStatus(TXStatus status) {
+      this.status = status;
+   }
+
+   public boolean isPreparing() {
+      return status == TXStatus.prepared || status == TXStatus.preparing;
+   }
+
    @Override
-   public void completeIO() {
+   public void afterIO() {
       if (context != null) {
          context.done();
+      }
+      if (status != null){
+         switch (status) {
+            case preparing -> setStatus(TXStatus.prepared);
+            case onePhaseCommitting, twoPhaseCommitting -> setStatus(TXStatus.committed);
+         }
       }
    }
 
@@ -60,6 +96,7 @@ public class DatabaseStoreTX implements StorageTX {
       if (dataList == null) {
          dataList = new ArrayList<>();
       }
+      data.setTx(this);
       dataList.add(data);
    }
 

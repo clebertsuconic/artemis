@@ -20,20 +20,19 @@ package org.apache.artemis.database.data;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.artemis.database.worker.DataWorker;
 
-public class DeleteReferenceData extends DBData {
-
-   public long queueID;
-   public long messageID;
+public class DeleteReferenceData extends ReferenceData {
 
    public DeleteReferenceData(long queueID, long messageID, IOCompletion context) {
-      super(context);
-      this.queueID = queueID;
-      this.messageID = messageID;
+      super(queueID, messageID, context);
    }
 
    @Override
    public void perform(DataWorker worker) {
-      worker.deleteReferenceStatement.addElement(this, context);
+      if (tx != null && tx.getStatus() == TXStatus.preparing) {
+         worker.updateAckTXReferenceStatement.addElement(this, context);
+      } else {
+         worker.deleteReferenceStatement.addElement(this, context);
+      }
    }
 
    @Override

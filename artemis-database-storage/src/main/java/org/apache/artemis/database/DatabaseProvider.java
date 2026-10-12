@@ -99,6 +99,7 @@ public class DatabaseProvider {
       String queueInfoTableName = sqlProvider.getQueue();
       String brokerDataTableName = sqlProvider.getBrokerData();
       String configDataTableName = sqlProvider.getConfigData();
+      String prepTxTableName = sqlProvider.getPrepTx();
 
       try (Connection connection = getConnection()) {
          JDBCUtils.createTable(connection, sqlProvider, messagesTableName, sqlProvider.createMessages(messagesTableName));
@@ -107,6 +108,7 @@ public class DatabaseProvider {
          JDBCUtils.createTable(connection, sqlProvider, queueInfoTableName, sqlProvider.createQueue(queueInfoTableName));
          JDBCUtils.createTable(connection, sqlProvider, brokerDataTableName, sqlProvider.createGenericData(brokerDataTableName));
          JDBCUtils.createTable(connection, sqlProvider, configDataTableName, sqlProvider.createGenericData(configDataTableName));
+         JDBCUtils.createTable(connection, sqlProvider, prepTxTableName, sqlProvider.createPrepTx(prepTxTableName));
       }
    }
 }

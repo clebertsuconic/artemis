@@ -18,14 +18,25 @@
 package org.apache.artemis.database.data;
 
 import org.apache.activemq.artemis.core.journal.IOCompletion;
+import org.apache.artemis.database.DatabaseTX;
 import org.apache.artemis.database.worker.DataWorker;
 
 public abstract class DBData {
 
    final IOCompletion context;
 
+   protected DatabaseTX tx;
+
    DBData(IOCompletion context) {
       this.context = context;
+   }
+
+   public DatabaseTX getTx() {
+      return tx;
+   }
+
+   public void setTx(DatabaseTX tx) {
+      this.tx = tx;
    }
 
    public void lineUp() {

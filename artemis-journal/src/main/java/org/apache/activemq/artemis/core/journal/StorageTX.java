@@ -34,6 +34,8 @@ public interface StorageTX {
    // TODO-important: remove this
    boolean isEmpty();
 
-   void completeIO();
+   void beforeIO();
+
+   void afterIO();
 
 }
