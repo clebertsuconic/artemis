@@ -26,7 +26,7 @@ public class MSSQLProvider extends SQLProvider {
 
    @Override
    public String createReferences(String tableName) {
-      return String.format("CREATE TABLE %s(MESSAGE_ID BIGINT NOT NULL, QUEUE_ID BIGINT NOT NULL, PAGED CHAR NOT NULL, TX_ID BIGINT, PRIMARY KEY (MESSAGE_ID, QUEUE_ID))", tableName);
+      return String.format("CREATE TABLE %s(MESSAGE_ID BIGINT NOT NULL, QUEUE_ID BIGINT NOT NULL, PAGED CHAR NOT NULL, TX_ID BIGINT, ACK_TX_ID BIGINT, PRIMARY KEY (MESSAGE_ID, QUEUE_ID))", tableName);
    }
 
    @Override
@@ -52,5 +52,10 @@ public class MSSQLProvider extends SQLProvider {
    @Override
    public String createGenericData(String tableName) {
       return String.format("CREATE TABLE %s(ID BIGINT NOT NULL, RECORD_TYPE SMALLINT NOT NULL, TX_ID BIGINT, DATA_RECORD VARBINARY(MAX), PRIMARY KEY (ID))", tableName);
+   }
+
+   @Override
+   public String createPrepTx(String tableName) {
+      return String.format("CREATE TABLE %s(TX_ID BIGINT NOT NULL, XID VARBINARY(MAX), PRIMARY KEY (TX_ID))", tableName);
    }
 }

@@ -26,10 +26,11 @@ import java.util.List;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.artemis.database.ActiveMQDatabaseLogger;
 import org.apache.artemis.database.DatabaseProvider;
-import org.apache.artemis.database.DatabaseStoreTX;
+import org.apache.artemis.database.DatabaseTX;
 import org.apache.artemis.database.data.DBData;
 import org.apache.artemis.database.queries.MessagesPendingDeliverQueryForUpdate;
 import org.apache.artemis.database.statements.DeleteAddressStatement;
+import org.apache.artemis.database.statements.DeletePrepTxStatement;
 import org.apache.artemis.database.statements.DeleteGenericDataStatement;
 import org.apache.artemis.database.statements.DeleteMessageStatement;
 import org.apache.artemis.database.statements.DeleteQueueStatement;
@@ -37,10 +38,14 @@ import org.apache.artemis.database.statements.DeleteReferenceStatement;
 import org.apache.artemis.database.statements.InsertAddressStatement;
 import org.apache.artemis.database.statements.InsertGenericDataStatement;
 import org.apache.artemis.database.statements.InsertMessageStatement;
+import org.apache.artemis.database.statements.InsertPrepTxStatement;
 import org.apache.artemis.database.statements.InsertQueueStatement;
 import org.apache.artemis.database.statements.InsertReferencesStatement;
 import org.apache.artemis.database.statements.UpdateGenericDataStatement;
 import org.apache.artemis.database.statements.UpdateQueueStatement;
+import org.apache.artemis.database.statements.UpdateTXMessageStatement;
+import org.apache.artemis.database.statements.UpdateAckTXReferenceStatement;
+import org.apache.artemis.database.statements.UpdateTXReferenceStatement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,8 +74,13 @@ public class DataWorker implements Runnable {
    public InsertGenericDataStatement insertBindingsGenericDataStatement;
    public UpdateGenericDataStatement updateBindingsGenericDataStatement;
    public DeleteGenericDataStatement deleteBindingsGenericDataStatement;
+   public UpdateTXMessageStatement updateTXMessageStatement;
+   public UpdateTXReferenceStatement updateTXReferenceStatement;
+   public UpdateAckTXReferenceStatement updateAckTXReferenceStatement;
+   public InsertPrepTxStatement insertPrepTxStatement;
+   public DeletePrepTxStatement deletePrepTxStatement;
    public MessagesPendingDeliverQueryForUpdate pendingDeliveryQueryForUpdate;
-   public ArrayList<DatabaseStoreTX> pendingTX;
+   public ArrayList<DatabaseTX> pendingTX;
    protected Connection connection;
    int batchSize;
    List<DBData> dataList;
@@ -105,6 +115,11 @@ public class DataWorker implements Runnable {
       insertGenericDataStatement = new InsertGenericDataStatement(databaseProvider, connection, batchSize);
       updateGenericDataStatement = new UpdateGenericDataStatement(databaseProvider, connection, batchSize);
       deleteGenericDataStatement = new DeleteGenericDataStatement(databaseProvider, connection, batchSize);
+      updateTXMessageStatement = new UpdateTXMessageStatement(databaseProvider, connection, batchSize);
+      updateTXReferenceStatement = new UpdateTXReferenceStatement(databaseProvider, connection, batchSize);
+      updateAckTXReferenceStatement = new UpdateAckTXReferenceStatement(databaseProvider, connection, batchSize);
+      insertPrepTxStatement = new InsertPrepTxStatement(databaseProvider, connection, batchSize);
+      deletePrepTxStatement = new DeletePrepTxStatement(databaseProvider, connection, batchSize);
       String bindingsTable = databaseProvider.getSqlProvider().getConfigData();
       insertBindingsGenericDataStatement = new InsertGenericDataStatement(databaseProvider, connection, batchSize, bindingsTable);
       updateBindingsGenericDataStatement = new UpdateGenericDataStatement(databaseProvider, connection, batchSize, bindingsTable);
@@ -208,7 +223,10 @@ public class DataWorker implements Runnable {
       logger.info("Worker {} running with {} tasks", name, dataList.size());
       dataList.forEach(this::doStore);
       insertMessageStatement.flushPending(false);
+      updateTXMessageStatement.flushPending(false);
       insertReferencesStatement.flushPending(false);
+      updateTXReferenceStatement.flushPending(false);
+      updateAckTXReferenceStatement.flushPending(false);
       deleteReferenceStatement.flushPending(false);
       deleteMessageStatement.flushPending(false);
       deleteAddressStatement.flushPending(false);
@@ -222,11 +240,16 @@ public class DataWorker implements Runnable {
       insertBindingsGenericDataStatement.flushPending(false);
       updateBindingsGenericDataStatement.flushPending(false);
       deleteBindingsGenericDataStatement.flushPending(false);
+      insertPrepTxStatement.flushPending(false);
+      deletePrepTxStatement.flushPending(false);
    }
 
    private void doAfterCommit() {
       insertMessageStatement.confirmData();
+      updateTXMessageStatement.confirmData();
       insertReferencesStatement.confirmData();
+      updateTXReferenceStatement.confirmData();
+      updateAckTXReferenceStatement.confirmData();
       deleteReferenceStatement.confirmData();
       deleteMessageStatement.confirmData();
       insertReferencesStatement.confirmData();
@@ -241,12 +264,17 @@ public class DataWorker implements Runnable {
       insertBindingsGenericDataStatement.confirmData();
       updateBindingsGenericDataStatement.confirmData();
       deleteBindingsGenericDataStatement.confirmData();
-      pendingTX.forEach(DatabaseStoreTX::completeIO);
+      insertPrepTxStatement.confirmData();
+      deletePrepTxStatement.confirmData();
+      pendingTX.forEach(DatabaseTX::afterIO);
    }
 
    private void doError(Exception exception) {
       insertMessageStatement.onError(exception);
+      updateTXMessageStatement.onError(exception);
       insertReferencesStatement.onError(exception);
+      updateTXReferenceStatement.onError(exception);
+      updateAckTXReferenceStatement.onError(exception);
       deleteReferenceStatement.onError(exception);
       deleteMessageStatement.onError(exception);
       insertReferencesStatement.onError(exception);
@@ -261,11 +289,16 @@ public class DataWorker implements Runnable {
       insertBindingsGenericDataStatement.onError(exception);
       updateBindingsGenericDataStatement.onError(exception);
       deleteBindingsGenericDataStatement.onError(exception);
+      insertPrepTxStatement.onError(exception);
+      deletePrepTxStatement.onError(exception);
    }
 
    private void doCleanup() {
       insertMessageStatement.clear();
+      updateTXMessageStatement.clear();
       insertReferencesStatement.clear();
+      updateTXReferenceStatement.clear();
+      updateAckTXReferenceStatement.clear();
       deleteReferenceStatement.clear();
       deleteMessageStatement.clear();
       deleteAddressStatement.clear();
@@ -279,6 +312,8 @@ public class DataWorker implements Runnable {
       insertBindingsGenericDataStatement.clear();
       updateBindingsGenericDataStatement.clear();
       deleteBindingsGenericDataStatement.clear();
+      insertPrepTxStatement.clear();
+      deletePrepTxStatement.clear();
       pendingTX.clear();
       boolean locked = dataManager.acquireLock();
       try {

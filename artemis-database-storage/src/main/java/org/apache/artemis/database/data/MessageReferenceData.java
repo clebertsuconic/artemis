@@ -17,10 +17,16 @@
 
 package org.apache.artemis.database.data;
 
+import java.lang.invoke.MethodHandles;
+
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.artemis.database.worker.DataWorker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MessageReferenceData extends DBData {
+
+   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
    public long messageID;
    public long queueID;
@@ -37,11 +43,15 @@ public class MessageReferenceData extends DBData {
 
    @Override
    public void perform(DataWorker worker) {
-      worker.insertReferencesStatement.addElement(this, context);
+      if (tx != null && tx.getStatus() == TXStatus.twoPhaseCommitting) {
+         worker.updateTXReferenceStatement.addElement(this, context);
+      } else {
+         worker.insertReferencesStatement.addElement(this, context);
+      }
    }
 
    @Override
    public String toString() {
-      return "MessageReferenceData{" + "messageID=" + messageID + ", queueID=" + queueID + ", paged=" + paged + ", txID=" + txID + '}';
+      return "MessageReferenceData{" + "messageID=" + messageID + ", queueID=" + queueID + ", paged=" + paged + ", tx=" + tx + '}';
    }
 }

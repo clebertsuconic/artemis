@@ -50,6 +50,10 @@ public abstract class SQLProvider {
       return "DB_CONFIG_DATA";
    }
 
+   public String getPrepTx() {
+      return "DB_PREP_TX";
+   }
+
    public abstract String createMessages(String tableName);
 
    public abstract String createReferences(String tableName);
@@ -64,12 +68,38 @@ public abstract class SQLProvider {
 
    public abstract String createGenericData(String tableName);
 
+   public abstract String createPrepTx(String tableName);
+
+   public String insertPrepTx(String tableName) {
+      return String.format("INSERT INTO %s (TX_ID, XID) VALUES (?,?)", tableName);
+   }
+
+   public String deletePrepTx(String tableName) {
+      return String.format("DELETE FROM %s WHERE TX_ID=?", tableName);
+   }
+
+   public String selectPrepTx(String tableName) {
+      return String.format("SELECT TX_ID, XID FROM %s ORDER BY TX_ID", tableName);
+   }
+
    public String insertMessages(String tableName) {
       return String.format("INSERT INTO %s (MESSAGE_ID, MESSAGE_RECORD, TX_ID, MEMORY_ESTIMATE, IS_LARGE, LARGE_BODY, IS_CORE) VALUES (?,?,?,?,?,?,?)", tableName);
    }
 
+   public String updateMessageTx(String tableName) {
+      return String.format("UPDATE %s SET TX_ID = NULL WHERE MESSAGE_ID = ?", tableName);
+   }
+
+   public String updateReferenceTx(String tableName) {
+      return String.format("UPDATE %s SET TX_ID = NULL WHERE MESSAGE_ID = ? AND QUEUE_ID = ?", tableName);
+   }
+
    public String insertReferences(String tableName) {
-      return String.format("INSERT INTO %s (MESSAGE_ID, QUEUE_ID, PAGED, TX_ID) VALUES (?,?,?,?)", tableName);
+      return String.format("INSERT INTO %s (MESSAGE_ID, QUEUE_ID, PAGED, TX_ID, ACK_TX_ID) VALUES (?,?,?,?,?)", tableName);
+   }
+
+   public String updateReferenceAckTx(String tableName) {
+      return String.format("UPDATE %s SET ACK_TX_ID = ? WHERE QUEUE_ID = ? AND MESSAGE_ID = ?", tableName);
    }
 
    public String deleteReferences(String tableName) {
@@ -101,7 +131,7 @@ public abstract class SQLProvider {
    }
 
    public String reloadMessages(String messagesTable, String referencesTable) {
-      return String.format("SELECT a.MESSAGE_ID, a.MESSAGE_RECORD, a.MEMORY_ESTIMATE, a.IS_LARGE, a.LARGE_BODY, a.IS_CORE FROM %s a WHERE EXISTS (SELECT 1 FROM %s b WHERE b.MESSAGE_ID = a.MESSAGE_ID AND b.PAGED='N') ORDER BY a.MESSAGE_ID", messagesTable, referencesTable);
+      return String.format("SELECT a.MESSAGE_ID, a.MESSAGE_RECORD, a.MEMORY_ESTIMATE, a.IS_LARGE, a.LARGE_BODY, a.IS_CORE FROM %s a WHERE EXISTS (SELECT 1 FROM %s b WHERE b.MESSAGE_ID = a.MESSAGE_ID AND b.PAGED='N') AND TX_ID IS NULL ORDER BY a.MESSAGE_ID", messagesTable, referencesTable);
    }
 
    // returning only the messages that have at least one PAGED = "N"
@@ -115,11 +145,11 @@ public abstract class SQLProvider {
 
    public String deliverPendingMessages(String referencesTable) {
       //return String.format("SELECT a.MESSAGE_ID MESSAGE_ID, a.MESSAGE_RECORD MESSAGE_RECORD, a.MEMORY_ESTIMATE MEMORY_ESTIMATE, b.PAGED PAGED FROM %s a, %s b WHERE a.MESSAGE_ID = b.MESSAGE_ID AND b.QUEUE_ID=? AND b.PAGED='Y' ORDER BY a.MESSAGE_ID", messagesTable, referencesTable);
-      return String.format("SELECT DR.MESSAGE_ID FROM %s DR WHERE DR.QUEUE_ID=? AND DR.PAGED='Y' ORDER BY DR.MESSAGE_ID", referencesTable);
+      return String.format("SELECT DR.MESSAGE_ID FROM %s DR WHERE DR.QUEUE_ID=? AND DR.PAGED='Y' AND TX_ID IS NULL ORDER BY DR.MESSAGE_ID", referencesTable);
    }
 
    public String deliverPendingMessagesJoinFetch(String messagesTable, String referencesTable) {
-      return "SELECT DR.MESSAGE_ID, DM.MESSAGE_RECORD, DM.MEMORY_ESTIMATE, DM.IS_LARGE, DM.LARGE_BODY, DM.IS_CORE FROM " + referencesTable + " DR, " + messagesTable + " DM WHERE DR.QUEUE_ID=? AND DR.PAGED='Y' AND DR.MESSAGE_ID = DM.MESSAGE_ID ORDER BY DR.MESSAGE_ID";
+      return "SELECT DR.MESSAGE_ID, DM.MESSAGE_RECORD, DM.MEMORY_ESTIMATE, DM.IS_LARGE, DM.LARGE_BODY, DM.IS_CORE FROM " + referencesTable + " DR, " + messagesTable + " DM WHERE DR.QUEUE_ID=? AND DR.PAGED='Y' AND DR.MESSAGE_ID = DM.MESSAGE_ID AND DM.TX_ID IS NULL ORDER BY DR.MESSAGE_ID";
    }
 
    public String updatePendingDelivery(String tableName) {
@@ -127,7 +157,7 @@ public abstract class SQLProvider {
    }
 
    public String selectReferences(String tableName) {
-      return String.format("SELECT MESSAGE_ID, QUEUE_ID, PAGED FROM %s WHERE PAGED='N' ORDER BY MESSAGE_ID, QUEUE_ID", tableName);
+      return String.format("SELECT MESSAGE_ID, QUEUE_ID, PAGED FROM %s WHERE PAGED='N' AND TX_ID IS NULL AND ACK_TX_ID IS NULL ORDER BY MESSAGE_ID, QUEUE_ID", tableName);
    }
 
    public String selectMessagesWithReferences(String messagesTable, String referencesTable) {

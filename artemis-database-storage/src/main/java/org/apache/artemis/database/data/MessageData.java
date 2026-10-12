@@ -17,17 +17,21 @@
 
 package org.apache.artemis.database.data;
 
+import java.lang.invoke.MethodHandles;
 import java.util.function.Supplier;
 
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.core.journal.IOCompletion;
 import org.apache.artemis.database.worker.DataWorker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MessageData extends DBData {
 
+   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+
    public final long messageID;
    public final Supplier<ActiveMQBuffer> messageBufferSupplier;
-   public final Long tx;
    public final int memoryEstimate;
    public final boolean isLarge;
    public final boolean isCore;
@@ -35,7 +39,6 @@ public class MessageData extends DBData {
 
    public MessageData(long messageID,
                       Supplier<ActiveMQBuffer> messageBufferSupplier,
-                      Long tx,
                       int memoryEstimate,
                       boolean isLarge,
                       boolean isCore,
@@ -44,7 +47,6 @@ public class MessageData extends DBData {
       super(context);
       this.messageID = messageID;
       this.messageBufferSupplier = messageBufferSupplier;
-      this.tx = tx;
       this.memoryEstimate = memoryEstimate;
       this.isLarge = isLarge;
       this.isCore = isCore;
@@ -53,7 +55,11 @@ public class MessageData extends DBData {
 
    @Override
    public void perform(DataWorker worker) {
-      worker.insertMessageStatement.addElement(this, context);
+      if (tx != null && tx.getStatus() == TXStatus.twoPhaseCommitting) {
+         worker.updateTXMessageStatement.addElement(this, context);
+      } else {
+         worker.insertMessageStatement.addElement(this, context);
+      }
    }
 
    @Override

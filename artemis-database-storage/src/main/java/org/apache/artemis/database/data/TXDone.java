@@ -17,14 +17,14 @@
 
 package org.apache.artemis.database.data;
 
-import org.apache.artemis.database.DatabaseStoreTX;
+import org.apache.artemis.database.DatabaseTX;
 import org.apache.artemis.database.worker.DataWorker;
 
 public class TXDone extends DBData {
 
-   DatabaseStoreTX tx;
+   DatabaseTX tx;
 
-   public TXDone(DatabaseStoreTX tx) {
+   public TXDone(DatabaseTX tx) {
       super(tx.getContext());
       this.tx = tx;
    }

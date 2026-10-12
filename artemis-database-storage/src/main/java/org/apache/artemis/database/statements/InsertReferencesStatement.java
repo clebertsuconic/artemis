@@ -49,11 +49,12 @@ public class InsertReferencesStatement extends BatchableStatement<MessageReferen
       preparedStatement.setLong(1, task.messageID);
       preparedStatement.setLong(2, task.queueID);
       preparedStatement.setString(3, task.paged ? "Y" : "N");
-      if (task.txID != null) {
-         preparedStatement.setLong(4, task.txID);
+      if (task.getTx() != null && task.getTx().isPreparing()) {
+         preparedStatement.setLong(4, task.getTx().getId());
       } else {
          preparedStatement.setNull(4, Types.NUMERIC);
       }
+      preparedStatement.setNull(5, Types.NUMERIC);
    }
 
 }

@@ -73,7 +73,11 @@ public class OperationContextImpl implements OperationContext {
    }
 
    public static void setContext(final OperationContext context) {
-      OperationContextImpl.threadLocalContext.set(context);
+      if (context == null) {
+         OperationContextImpl.threadLocalContext.remove();
+      } else {
+         OperationContextImpl.threadLocalContext.set(context);
+      }
    }
 
    LinkedList<TaskHolder> tasks;
