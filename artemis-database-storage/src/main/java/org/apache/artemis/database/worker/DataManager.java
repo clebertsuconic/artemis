@@ -447,12 +447,12 @@ public class DataManager extends ActiveMQScheduledComponent {
       castTX(storageTX).addData(new UpdateGenericData(id, txId, dataSupplier, callback));
    }
 
-   public void deleteGenericData(long id, IOCompletion callback) {
-      flushData(new DeleteGenericData(id, callback));
+   public void deleteGenericData(long id, boolean bindings, IOCompletion callback) {
+      flushData(new DeleteGenericData(id, bindings, callback));
    }
 
-   public void deleteGenericData(StorageTX storageTX, long id, IOCompletion callback) {
-      castTX(storageTX).addData(new DeleteGenericData(id, callback));
+   public void deleteGenericData(StorageTX storageTX, long id, boolean bindings, IOCompletion callback) {
+      castTX(storageTX).addData(new DeleteGenericData(id, bindings, callback));
    }
 
    public void storeBindingsGenericData(long id,

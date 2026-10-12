@@ -49,6 +49,10 @@ public class GenericDataJDBCQuery {
 
    public void query(Consumer<GenericData> consumer) throws Exception {
       String sql = databaseProvider.getSqlProvider().selectGenericData(tableName);
+      query(consumer, sql);
+   }
+
+   public void query(Consumer<GenericData> consumer, String sql) throws Exception {
       Statement statement = connection.createStatement();
       statement.setFetchSize(500);
       try (ResultSet resultSet = statement.executeQuery(sql)) {

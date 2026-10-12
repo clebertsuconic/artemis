@@ -120,6 +120,7 @@ public class DBXAIntegrationTest extends AbstractStatementTest {
                Wait.assertEquals(0, () -> selectCount(connection, sqlProvider.getPrepTx()), 5000, 100);
                Wait.assertEquals(0, () -> selectNumber(connection, "SELECT COUNT(*) FROM " + sqlProvider.getMessages()), 5000, 100);
                Wait.assertEquals(0, () -> selectNumber(connection, "SELECT COUNT(*) FROM " + sqlProvider.getRefs()), 5000, 100);
+               Wait.assertEquals(0, () -> selectNumber(connection, "SELECT COUNT(*) FROM " + sqlProvider.getBrokerData()), 5000, 100);
             }
          }
       }
