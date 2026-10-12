@@ -47,10 +47,16 @@ public class MessagesAndReferencesDBQuery {
 
    private final DatabaseProvider databaseProvider;
    private final Connection connection;
+   private final String whereClause;
 
    public MessagesAndReferencesDBQuery(DatabaseProvider databaseProvider, Connection connection) {
+      this(databaseProvider, connection, null);
+   }
+
+   public MessagesAndReferencesDBQuery(DatabaseProvider databaseProvider, Connection connection, String whereClause) {
       this.databaseProvider = databaseProvider;
       this.connection = connection;
+      this.whereClause = whereClause;
    }
 
    private static MessageDataReferenceMerged build(long messageID,
@@ -73,7 +79,9 @@ public class MessagesAndReferencesDBQuery {
    public void query(Consumer<MessageDataReferenceMerged> consumer) throws Exception {
       String messagesTable = databaseProvider.getSqlProvider().getMessages();
       String referencesTable = databaseProvider.getSqlProvider().getRefs();
-      String sql = databaseProvider.getSqlProvider().selectMessagesWithReferences(messagesTable, referencesTable);
+      String sql = whereClause != null
+         ? databaseProvider.getSqlProvider().selectMessagesWithReferences(messagesTable, referencesTable, whereClause)
+         : databaseProvider.getSqlProvider().selectMessagesWithReferences(messagesTable, referencesTable);
 
       try (Statement statement = connection.createStatement()) {
          statement.setFetchSize(500);
@@ -100,9 +108,10 @@ public class MessagesAndReferencesDBQuery {
                boolean isCore = "Y".equals(rs.getString(9));
 
                // nullable — LEFT JOIN produces NULL when there are no refs
-               long queueIDRaw = rs.getLong(5);
+               long queueID = rs.getLong(5);
                boolean hasRef = !rs.wasNull();
                boolean paged = hasRef && "Y".equals(rs.getString(6));
+               long ackTX = rs.getLong(6);
 
                if (messageID != currentID) {
                   // flush the previous message if there is one
@@ -121,7 +130,7 @@ public class MessagesAndReferencesDBQuery {
                }
 
                if (hasRef) {
-                  currentQueues.add(new QueueRef(queueIDRaw, paged));
+                  currentQueues.add(new QueueRef(queueID, paged, ackTX));
                }
             }
 

@@ -161,7 +161,12 @@ public abstract class SQLProvider {
    }
 
    public String selectMessagesWithReferences(String messagesTable, String referencesTable) {
-      return String.format("SELECT a.MESSAGE_ID, a.TX_ID, a.MEMORY_ESTIMATE, a.MESSAGE_RECORD, b.QUEUE_ID, b.PAGED, a.IS_LARGE, a.LARGE_BODY, a.IS_CORE FROM %s a LEFT JOIN %s b ON a.MESSAGE_ID = b.MESSAGE_ID ORDER BY a.MESSAGE_ID, b.QUEUE_ID", messagesTable, referencesTable);
+      return selectMessagesWithReferences(messagesTable, referencesTable, "a.TX_ID IS NULL and b.ACK_TX_ID IS NULL");
+   }
+
+   public String selectMessagesWithReferences(String messagesTable, String referencesTable, String whereClause) {
+      String whereFragment = (whereClause != null && !whereClause.isEmpty()) ? " WHERE " + whereClause : "";
+      return String.format("SELECT a.MESSAGE_ID, a.TX_ID, a.MEMORY_ESTIMATE, a.MESSAGE_RECORD, b.QUEUE_ID, b.PAGED, a.IS_LARGE, a.LARGE_BODY, a.IS_CORE, b.ACK_TX_ID FROM %s a LEFT JOIN %s b ON a.MESSAGE_ID = b.MESSAGE_ID%s ORDER BY a.MESSAGE_ID, b.QUEUE_ID", messagesTable, referencesTable, whereFragment);
    }
 
    public String selectAddress(String tableName) {
@@ -196,7 +201,12 @@ public abstract class SQLProvider {
    }
 
    public String selectGenericData(String tableName) {
-      return String.format("SELECT ID, RECORD_TYPE, TX_ID, DATA_RECORD FROM %s WHERE TX_ID IS NULL ORDER BY ID", tableName);
+      return selectGenericData(tableName, "TX_ID IS NULL");
+   }
+
+   public String selectGenericData(String tableName, String whereClause) {
+      String whereFragment = (whereClause != null && !whereClause.isEmpty()) ? " WHERE " + whereClause : "";
+      return String.format("SELECT ID, RECORD_TYPE, TX_ID, DATA_RECORD FROM %s%s ORDER BY ID", tableName, whereFragment);
    }
 
    public String countPagedMessages(Boolean paged) {

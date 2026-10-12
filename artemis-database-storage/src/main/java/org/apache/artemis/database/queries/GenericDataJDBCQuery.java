@@ -39,16 +39,24 @@ public class GenericDataJDBCQuery {
    DatabaseProvider databaseProvider;
    String tableName;
    boolean bindingsRecord;
+   String whereClause;
 
    public GenericDataJDBCQuery(DatabaseProvider databaseProvider, Connection connection, String tableName, boolean bindingsRecord) {
+      this(databaseProvider, connection, tableName, bindingsRecord, null);
+   }
+
+   public GenericDataJDBCQuery(DatabaseProvider databaseProvider, Connection connection, String tableName, boolean bindingsRecord, String whereClause) {
       this.databaseProvider = databaseProvider;
       this.connection = connection;
       this.tableName = tableName;
       this.bindingsRecord = bindingsRecord;
+      this.whereClause = whereClause;
    }
 
    public void query(Consumer<GenericData> consumer) throws Exception {
-      String sql = databaseProvider.getSqlProvider().selectGenericData(tableName);
+      String sql = whereClause != null
+         ? databaseProvider.getSqlProvider().selectGenericData(tableName, whereClause)
+         : databaseProvider.getSqlProvider().selectGenericData(tableName);
       query(consumer, sql);
    }
 

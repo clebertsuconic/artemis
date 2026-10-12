@@ -56,7 +56,7 @@ public record MessageDataReferenceMerged(long messageID, Long tx, int memoryEsti
    /**
     * Per-queue entry held inside a merged message row.
     */
-   public record QueueRef(long queueID, boolean paged) {
+   public record QueueRef(long queueID, boolean paged, long ackTx) {
 
       @Override
       public String toString() {

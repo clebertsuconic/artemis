@@ -464,7 +464,6 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public void deleteCursorAcknowledge(long ackID) throws Exception {
-      // TBD
    }
 
    @Override
@@ -511,7 +510,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    @Override
    public void rollbackBindings(Transaction tx) throws Exception {
-      // TBD - I don't think anything is needed
+      // no op
    }
 
    @Override
@@ -1079,7 +1078,10 @@ public class DatabaseStorageManager extends AbstractStorageManager {
             }
          });
 
+         PreparedTXLoader loader = new PreparedTXLoader();
+         loader.loadPreparedTransactions(databaseProvider, connection);
       }
+
 
       idGenerator.cleanup();
 
