@@ -162,9 +162,9 @@ public class DataManager extends ActiveMQScheduledComponent {
       creditsUpdater.decrementAndGet(this);
    }
 
-   public void flowControl(Runnable block, Runnable release) {
+   public boolean flowControl(Runnable block, Runnable release) {
       if (!acquireLock()) {
-         return;
+         return false;
       }
       try {
          if (getCredits() >= maxCredits) {
@@ -173,6 +173,9 @@ public class DataManager extends ActiveMQScheduledComponent {
             }
             block.run();
             onRelease.add(release);
+            return true;
+         } else {
+            return false;
          }
       } finally {
          releaseLock();

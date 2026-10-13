@@ -402,13 +402,9 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
             return;
          }
 
-         int creditsWrite = snfQueue.getPagingStore().page(message, tx, pagedRouteContext, this::copyMessageForPaging, true);
+         int creditsWrite = snfQueue.getPagingStore().page(message, tx, pagedRouteContext, this::copyMessageForPaging);
 
-         boolean pendingDelivery = snfQueue.getPagingStore().isStorePaging();
-
-         // This will store the message on paging, and the message will be copied into paging.
          if (creditsWrite >= 0) {
-            snfQueue.getPagingStore().writeFlowControl(creditsWrite);
             if (tx == null) {
                snfQueue.deliverAsync();
             } else {
@@ -449,10 +445,10 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
          }
 
          if (message.isDurable() && snfQueue.isDurable()) {
-            PostOfficeImpl.storeDurableReference(server.getStorageManager(), message, context.getTransaction(), snfQueue, pendingDelivery, true);
+            PostOfficeImpl.storeDurableReference(server.getStorageManager(), message, context.getTransaction(), snfQueue, false, true);
          }
 
-         if (tx == null && !pendingDelivery) {
+         if (tx == null) {
             server.getStorageManager().afterStoreOperations(new IOCallback() {
                @Override
                public void done() {

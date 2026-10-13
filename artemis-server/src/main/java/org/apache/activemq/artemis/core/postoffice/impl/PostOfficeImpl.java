@@ -1716,9 +1716,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
             continue;
          }
 
-         // the new JDBC implementation could set this to true.
-         // as Paging will act differently on the new JDBC
-         boolean pendingDelivery = store != null ? store.isStorePaging() : false;
+         boolean pendingDelivery = store != null ? store.isDeliveryFrozen() : false;
 
          if (message.isDropped()) {
             // this should never happen
