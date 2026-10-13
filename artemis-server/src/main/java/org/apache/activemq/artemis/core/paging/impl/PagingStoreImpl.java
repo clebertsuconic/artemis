@@ -955,15 +955,14 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
 
    @Override
    public boolean page(Message message, final Transaction tx, RouteContextList listCtx) throws Exception {
-      return page(message, tx, listCtx, null, false) >= 0;
+      return page(message, tx, listCtx, null) >= 0;
    }
 
    @Override
    public int page(Message message,
                    final Transaction tx,
                    RouteContextList listCtx,
-                   Function<Message, Message> pageDecorator,
-                   boolean useFlowControl) throws Exception {
+                   Function<Message, Message> pageDecorator) throws Exception {
 
       if (!running) {
          return -1;
@@ -974,7 +973,7 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
          return policiesResult;
       }
 
-      return writePage(message, tx, listCtx, pageDecorator, useFlowControl);
+      return writePage(message, tx, listCtx, pageDecorator);
    }
 
    /**
@@ -1065,8 +1064,7 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
    protected int writePage(Message message,
                            Transaction tx,
                            RouteContextList listCtx,
-                           Function<Message, Message> pageDecorator,
-                           boolean useFlowControl) throws Exception {
+                           Function<Message, Message> pageDecorator) throws Exception {
       readLock();
       PagedMessage pagedMessage;
       try {
@@ -1100,7 +1098,7 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
          readUnlock();
       }
 
-      int credits = timedWriter.addTask(getStorageManager().getContext(), pagedMessage, tx, listCtx, useFlowControl);
+      int credits = timedWriter.addTask(getStorageManager().getContext(), pagedMessage, tx, listCtx);
 
       assert credits >= 0;
 
@@ -1108,9 +1106,11 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
    }
 
    @Override
-   public void writeFlowControl(int credits) {
+   public boolean flowControl(Runnable block, Runnable release) {
       if (timedWriter != null) {
-         timedWriter.flowControl(credits);
+         return timedWriter.flowControl(block, release);
+      } else {
+         return false;
       }
    }
 

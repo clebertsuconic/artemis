@@ -84,7 +84,8 @@ import org.apache.activemq.artemis.utils.IDGenerator;
  */
 public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQComponent {
 
-   default void flowControl(Runnable block, Runnable release) {
+   default boolean flowControl(PagingStore store, Runnable block, Runnable release) {
+      return false;
    }
 
    default PagingManager createPagingManager(ActiveMQServer server) throws Exception {

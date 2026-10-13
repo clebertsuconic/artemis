@@ -126,16 +126,20 @@ public class DatabasePagingStoreImpl extends AddressSizeLimiter implements Pagin
    }
 
    @Override
+   public boolean isDeliveryFrozen() {
+      return isStorePaging();
+   }
+
+   @Override
    public boolean page(Message message, Transaction tx, RouteContextList listCtx) throws Exception {
-      return page(message, tx, listCtx, null, false) >= 0;
+      return page(message, tx, listCtx, null) >= 0;
    }
 
    @Override
    public int page(Message message,
                    Transaction tx,
                    RouteContextList listCtx,
-                   Function<Message, Message> pageDecorator,
-                   boolean useFlowControl) throws Exception {
+                   Function<Message, Message> pageDecorator) throws Exception {
 
       Integer policiesResult = checkFullPolicies(message);
       if (policiesResult != null) {

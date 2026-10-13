@@ -479,8 +479,7 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
       public int page(Message message,
                           Transaction tx,
                           RouteContextList listCtx,
-                          Function<Message, Message> pageDecorator,
-                          boolean useFlowControl) throws Exception {
+                          Function<Message, Message> pageDecorator) throws Exception {
          return -1;
       }
 

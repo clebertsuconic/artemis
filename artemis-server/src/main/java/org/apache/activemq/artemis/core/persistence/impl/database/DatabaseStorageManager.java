@@ -151,8 +151,14 @@ public class DatabaseStorageManager extends AbstractStorageManager {
    }
 
    @Override
-   public void flowControl(Runnable block, Runnable release) {
-      dataManager.flowControl(block, release);
+   public boolean flowControl(PagingStore pagingStore, Runnable block, Runnable release) {
+      // The database paging store does not use a PageTimedWriter, so page-level
+      // flow control is not active. Kept here for future use if database paging
+      // gains its own write-side back-pressure.
+      // if (pagingStore != null && pagingStore.flowControl(block, release)) {
+      //    return true;
+      // }
+      return dataManager.flowControl(block, release);
    }
 
    @Override
@@ -249,13 +255,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
    public boolean addToPage(PagingStore store, Message msg, Transaction tx, RouteContextList listCtx) throws Exception {
       int credits;
       try (ArtemisCloseable closeable = closeableReadLock()) {
-         credits = store.page(msg, tx, listCtx, null, true);
-      }
-
-      // flow control on the TimedWriter needs to be done outside of locking
-      // it is ok to do it after the write
-      if (credits > 0) {
-         store.writeFlowControl(credits);
+         credits = store.page(msg, tx, listCtx, null);
       }
 
       return credits >= 0;

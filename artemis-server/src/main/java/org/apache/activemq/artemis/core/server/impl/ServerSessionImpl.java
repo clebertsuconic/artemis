@@ -2074,7 +2074,7 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
             }
          }
 
-         storageFlowControl();
+         storageFlowControl(theMessage.getAddressSimpleString());
 
          if (AuditLogger.isMessageLoggingEnabled()) {
             if (tx != null && !autoCommitSends) {
@@ -2108,7 +2108,19 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
    }
 
    private void storageFlowControl() {
-      storageManager.flowControl(blockRunnable, unblockRunnable);
+      storageFlowControl(null);
+   }
+
+   private void storageFlowControl(SimpleString address) {
+      PagingStore pagingStore = null;
+      if (address != null) {
+         try {
+            pagingStore = server.getPagingManager().getPageStore(address);
+         } catch (Exception e) {
+            logger.debug(e.getMessage(), e);
+         }
+      }
+      storageManager.flowControl(pagingStore, blockRunnable, unblockRunnable);
    }
 
    // I'm declaring the runnable ahead to avoid creating a new instance on every call
