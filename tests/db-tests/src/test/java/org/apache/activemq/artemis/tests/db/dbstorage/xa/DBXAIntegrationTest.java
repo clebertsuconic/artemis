@@ -46,7 +46,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -77,18 +76,27 @@ public class DBXAIntegrationTest extends AbstractStatementTest {
 
    @TestTemplate
    public void testSimpleXATXSend() throws Exception {
+      testSimpleXATXSend(false);
+   }
 
+   @TestTemplate
+   public void testSimpleXATXSendRestart() throws Exception {
+      testSimpleXATXSend(true);
+   }
+
+   public void testSimpleXATXSend(boolean restart) throws Exception {
+
+      final String QUEUE_NAME = "testXAQueue";
+      configuration.addAddressConfiguration(new CoreAddressConfiguration().setName(QUEUE_NAME).addRoutingType(RoutingType.ANYCAST).addQueueConfiguration(QueueConfiguration.of(QUEUE_NAME).setRoutingType(RoutingType.ANYCAST)));
       ActiveMQServer server = createServer(true, configuration);
       server.start();
 
       runAfter(server::stop);
 
-      final String QUEUE_NAME = "testXAQueue";
       final int NUM_MESSAGES = 10;
 
       ConnectionFactory factory = CFUtil.createConnectionFactory("CORE", "tcp://localhost:61616");
-      DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
-      SQLProvider sqlProvider = databaseProvider.getSqlProvider();
+      SQLProvider sqlProvider = storageConfiguration.getDatabaseProvider().getSqlProvider();
 
       Xid xid = newXID();
 
@@ -108,15 +116,19 @@ public class DBXAIntegrationTest extends AbstractStatementTest {
             xaSession.getXAResource().end(xid, XAResource.TMSUCCESS);
             xaSession.getXAResource().prepare(xid);
          }
-         //server.stop();
-         //server.start();
+
+         if (restart) {
+            server.stop();
+            server.start();
+         }
+
          if (repeat == 0) {
             try (XAConnection xaConnection = ((XAConnectionFactory) factory).createXAConnection()) {
                XASession xaSession = xaConnection.createXASession();
                xaSession.getXAResource().rollback(xid);
             }
             assertTrue(server.getStorageManager().waitOnOperations(5000));
-            try (Connection connection = databaseProvider.getConnection()) {
+            try (Connection connection = storageConfiguration.getDatabaseProvider().getConnection()) {
                Wait.assertEquals(0, () -> selectCount(connection, sqlProvider.getPrepTx()), 5000, 100);
                Wait.assertEquals(0, () -> selectNumber(connection, "SELECT COUNT(*) FROM " + sqlProvider.getMessages()), 5000, 100);
                Wait.assertEquals(0, () -> selectNumber(connection, "SELECT COUNT(*) FROM " + sqlProvider.getRefs()), 5000, 100);
@@ -126,7 +138,7 @@ public class DBXAIntegrationTest extends AbstractStatementTest {
       }
 
       // Verify prepare record and messages with TX_ID set
-      try (Connection connection = databaseProvider.getConnection()) {
+      try (Connection connection = storageConfiguration.getDatabaseProvider().getConnection()) {
          Wait.assertEquals(1, () -> selectCount(connection, sqlProvider.getPrepTx()), 5000, 100);
          Wait.assertEquals(NUM_MESSAGES, () -> selectNumber(connection, "SELECT COUNT(*) FROM " + sqlProvider.getMessages() + " WHERE TX_ID IS NOT NULL"), 5000, 100);
       }
@@ -149,7 +161,7 @@ public class DBXAIntegrationTest extends AbstractStatementTest {
       }
 
       // Verify TX_ID is now null (messages committed) and prepare record removed
-      try (Connection connection = databaseProvider.getConnection()) {
+      try (Connection connection = storageConfiguration.getDatabaseProvider().getConnection()) {
          Wait.assertEquals(0, () -> selectCount(connection, sqlProvider.getPrepTx()), 5000, 100);
          Wait.assertEquals(NUM_MESSAGES, () -> selectNumber(connection, "SELECT COUNT(*) FROM " + sqlProvider.getMessages() + " WHERE TX_ID IS NULL"), 5000, 100);
          Wait.assertEquals(NUM_MESSAGES, () -> selectNumber(connection, "SELECT COUNT(*) FROM " + sqlProvider.getRefs() + " WHERE TX_ID IS NULL"), 5000, 100);
@@ -163,6 +175,7 @@ public class DBXAIntegrationTest extends AbstractStatementTest {
          MessageConsumer consumer = session.createConsumer(queue);
          for (int i = 0; i < NUM_MESSAGES; i++) {
             TextMessage msg = (TextMessage) consumer.receive(5000);
+            logger.info("Received {} on {}", msg, i);
             assertNotNull(msg, "Expected message " + i);
          }
          assertNull(consumer.receiveNoWait());
@@ -170,25 +183,33 @@ public class DBXAIntegrationTest extends AbstractStatementTest {
       }
 
       // Verify all messages consumed
-      try (Connection connection = databaseProvider.getConnection()) {
+      try (Connection connection = storageConfiguration.getDatabaseProvider().getConnection()) {
          Wait.assertEquals(0, () -> selectCount(connection, sqlProvider.getMessages()), 5000, 100);
       }
    }
 
    @TestTemplate
-   public void testSimpleXATXReceive() throws Exception {
+   public void testSimplaXATXReceive() throws Exception {
+      testSimpleXATXReceive(false);
+   }
 
+   @TestTemplate
+   public void testSimplaXATXReceiveRestart() throws Exception {
+      testSimpleXATXReceive(true);
+   }
+
+   public void testSimpleXATXReceive(boolean restart) throws Exception {
+
+      final String QUEUE_NAME = "testXAQueue";
+      configuration.addAddressConfiguration(new CoreAddressConfiguration().setName(QUEUE_NAME).addRoutingType(RoutingType.ANYCAST).addQueueConfiguration(QueueConfiguration.of(QUEUE_NAME).setRoutingType(RoutingType.ANYCAST)));
       ActiveMQServer server = createServer(true, configuration);
       server.start();
 
       runAfter(server::stop);
-
-      final String QUEUE_NAME = "testXAQueue";
       final int NUM_MESSAGES = 10;
 
       ConnectionFactory factory = CFUtil.createConnectionFactory("CORE", "tcp://localhost:61616");
-      DatabaseProvider databaseProvider = storageConfiguration.getDatabaseProvider();
-      SQLProvider sqlProvider = databaseProvider.getSqlProvider();
+      SQLProvider sqlProvider = storageConfiguration.getDatabaseProvider().getSqlProvider();
 
       // Send messages outside XA
       try (javax.jms.Connection connection = factory.createConnection()) {
@@ -203,7 +224,7 @@ public class DBXAIntegrationTest extends AbstractStatementTest {
       }
 
       // Verify messages are stored
-      try (Connection connection = databaseProvider.getConnection()) {
+      try (Connection connection = storageConfiguration.getDatabaseProvider().getConnection()) {
          Wait.assertEquals(NUM_MESSAGES, () -> selectCount(connection, sqlProvider.getMessages()), 5000, 100);
          Wait.assertEquals(NUM_MESSAGES, () -> selectCount(connection, sqlProvider.getRefs()), 5000, 100);
       }
@@ -224,25 +245,32 @@ public class DBXAIntegrationTest extends AbstractStatementTest {
                assertNotNull(msg, "Expected message " + i);
             }
             xaSession.getXAResource().end(xid, XAResource.TMSUCCESS);
-            if (repeat == 0) {
-               xaSession.getXAResource().prepare(xid);
+            xaSession.getXAResource().prepare(xid);
+         }
+
+         if (restart) {
+            server.stop();
+            server.start();
+         }
+
+         if (repeat == 0) {
+            try (XAConnection xaConnection = ((XAConnectionFactory) factory).createXAConnection()) {
+               XASession xaSession = xaConnection.createXASession();
                xaSession.getXAResource().rollback(xid);
 
-               try (Connection connection = databaseProvider.getConnection()) {
+               try (Connection connection = storageConfiguration.getDatabaseProvider().getConnection()) {
                   Wait.assertEquals(0, () -> selectCount(connection, sqlProvider.getPrepTx()), 5000, 100);
                   Wait.assertEquals(NUM_MESSAGES, () -> selectNumber(connection, "SELECT COUNT(*) FROM " + sqlProvider.getMessages() + " WHERE TX_ID IS NULL"), 5000, 100);
                   Wait.assertEquals(NUM_MESSAGES, () -> selectNumber(connection, "SELECT COUNT(*) FROM " + sqlProvider.getRefs() + " WHERE TX_ID IS NULL AND ACK_TX_ID IS NULL"), 5000, 100);
                }
 
                xid = newXID();
-            } else {
-               xaSession.getXAResource().prepare(xid);
             }
          }
       }
 
       // Verify prepare record exists and messages still present
-      try (Connection connection = databaseProvider.getConnection()) {
+      try (Connection connection = storageConfiguration.getDatabaseProvider().getConnection()) {
          Wait.assertEquals(1, () -> selectCount(connection, sqlProvider.getPrepTx()), 5000, 100);
          Wait.assertEquals(NUM_MESSAGES, () -> selectCount(connection, sqlProvider.getMessages()), 5000, 100);
          Wait.assertEquals(NUM_MESSAGES, () -> selectCount(connection, sqlProvider.getRefs()), 5000, 100);
@@ -266,7 +294,7 @@ public class DBXAIntegrationTest extends AbstractStatementTest {
       }
 
       // Verify prepare record removed and messages consumed
-      try (Connection connection = databaseProvider.getConnection()) {
+      try (Connection connection = storageConfiguration.getDatabaseProvider().getConnection()) {
          Wait.assertEquals(0, () -> selectCount(connection, sqlProvider.getPrepTx()), 5000, 100);
          Wait.assertEquals(0, () -> selectCount(connection, sqlProvider.getRefs()), 5000, 100);
          Wait.assertEquals(0, () -> selectCount(connection, sqlProvider.getMessages()), 5000, 100);

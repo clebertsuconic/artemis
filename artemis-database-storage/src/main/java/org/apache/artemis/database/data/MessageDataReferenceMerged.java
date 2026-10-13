@@ -56,11 +56,21 @@ public record MessageDataReferenceMerged(long messageID, Long tx, int memoryEsti
    /**
     * Per-queue entry held inside a merged message row.
     */
-   public record QueueRef(long queueID, boolean paged, long ackTx) {
+   public record QueueRef(long queueID, boolean paged, Long ackTx) {
 
       @Override
       public String toString() {
-         return paged ? queueID + "*" : String.valueOf(queueID);
+         StringBuilder sb = new StringBuilder();
+         sb.append(queueID);
+         if (paged) {
+            sb.append('*');
+         }
+         if (ackTx != null) {
+            sb.append("\u001B[31m(ackTX=").append(ackTx).append(")\u001B[0m");
+         }
+         return sb.toString();
       }
    }
+
+
 }

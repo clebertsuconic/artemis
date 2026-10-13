@@ -103,7 +103,11 @@ public abstract class BatchableStatement<E> {
    }
 
    public void onError(Exception e) {
-      callbacks.forEach(c -> c.onError(-1, e.getMessage()));
+      callbacks.forEach(c -> {
+         if (c != null) {
+            c.onError(-1, e.getMessage());
+         }
+      });
    }
 
    public void confirmData() {
@@ -117,7 +121,9 @@ public abstract class BatchableStatement<E> {
    }
 
    private void okCallback(IOCallback callback) {
-      callback.done();
+      if (callback != null) {
+         callback.done();
+      }
    }
 
    protected void flushOne(E element) {

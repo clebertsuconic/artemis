@@ -161,12 +161,20 @@ public abstract class SQLProvider {
    }
 
    public String selectMessagesWithReferences(String messagesTable, String referencesTable) {
-      return selectMessagesWithReferences(messagesTable, referencesTable, "a.TX_ID IS NULL and b.ACK_TX_ID IS NULL");
+      return selectMessagesWithReferences(messagesTable, referencesTable, null);
    }
 
    public String selectMessagesWithReferences(String messagesTable, String referencesTable, String whereClause) {
       String whereFragment = (whereClause != null && !whereClause.isEmpty()) ? " WHERE " + whereClause : "";
       return String.format("SELECT a.MESSAGE_ID, a.TX_ID, a.MEMORY_ESTIMATE, a.MESSAGE_RECORD, b.QUEUE_ID, b.PAGED, a.IS_LARGE, a.LARGE_BODY, a.IS_CORE, b.ACK_TX_ID FROM %s a LEFT JOIN %s b ON a.MESSAGE_ID = b.MESSAGE_ID%s ORDER BY a.MESSAGE_ID, b.QUEUE_ID", messagesTable, referencesTable, whereFragment);
+   }
+
+   public String whereClauseLoadTXMessages() {
+      return "(a.TX_ID is not null) or (b.ACK_Tx_ID is not null)";
+   }
+
+   public String whereClauseLoadTXGenericData() {
+      return "TX_ID IS NOT NULL";
    }
 
    public String selectAddress(String tableName) {
@@ -218,5 +226,4 @@ public abstract class SQLProvider {
       }
       return String.format("SELECT xref.queue_id queue_id, count(*) msg_count, sum(dm.memory_estimate) mem_estimate " + "FROM %s xref, %s dm " + "WHERE dm.message_id = xref.message_id %s " + "GROUP BY xref.queue_id", referencesTable, messageTable, pagedClause);
    }
-
 }
