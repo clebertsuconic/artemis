@@ -340,7 +340,6 @@ public class TransactionImpl implements Transaction {
 
                @Override
                public void done() {
-                  logger.info("AfterComplete");
                   afterCommit(operationsToComplete);
                }
             }, getRequiredConsistency());

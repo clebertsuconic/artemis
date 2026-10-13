@@ -66,7 +66,7 @@ public record MessageDataReferenceMerged(long messageID, Long tx, int memoryEsti
             sb.append('*');
          }
          if (ackTx != null) {
-            sb.append("\u001B[31m(ackTX=").append(ackTx).append(")\u001B[0m");
+            sb.append("(ackTX=").append(ackTx).append(")");
          }
          return sb.toString();
       }

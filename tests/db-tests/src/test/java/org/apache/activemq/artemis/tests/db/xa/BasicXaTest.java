@@ -45,6 +45,7 @@ import org.apache.activemq.artemis.api.core.client.MessageHandler;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorageManager;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
@@ -53,6 +54,7 @@ import org.apache.activemq.artemis.ra.ActiveMQRAXAResource;
 import org.apache.activemq.artemis.tests.db.common.ParameterDBTestBase;
 import org.apache.activemq.artemis.utils.UUIDGenerator;
 import org.apache.activemq.artemis.utils.Wait;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
@@ -435,6 +437,7 @@ public abstract class BasicXaTest extends ParameterDBTestBase {
 
    @TestTemplate
    public void testPrepareError() throws Exception {
+      Assumptions.assumeFalse(messagingService.getStorageManager() instanceof DatabaseStorageManager, "Test requires journal-based storage");
       Xid xid = newXID();
 
       ClientSession clientSession2 = sessionFactory.createSession(false, true, true);
@@ -485,6 +488,7 @@ public abstract class BasicXaTest extends ParameterDBTestBase {
 
    @TestTemplate
    public void testRollbackError() throws Exception {
+      Assumptions.assumeFalse(messagingService.getStorageManager() instanceof DatabaseStorageManager, "Test requires journal-based storage");
       Xid xid = newXID();
 
       ClientSession clientSession2 = sessionFactory.createSession(false, true, true);

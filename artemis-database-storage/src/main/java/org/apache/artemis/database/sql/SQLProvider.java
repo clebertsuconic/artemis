@@ -157,7 +157,7 @@ public abstract class SQLProvider {
    }
 
    public String selectReferences(String tableName) {
-      return String.format("SELECT MESSAGE_ID, QUEUE_ID, PAGED FROM %s WHERE PAGED='N' AND TX_ID IS NULL AND ACK_TX_ID IS NULL ORDER BY MESSAGE_ID, QUEUE_ID", tableName);
+      return String.format("SELECT MESSAGE_ID, QUEUE_ID, PAGED FROM %s WHERE PAGED='N' AND TX_ID IS NULL ORDER BY MESSAGE_ID, QUEUE_ID", tableName);
    }
 
    public String selectMessagesWithReferences(String messagesTable, String referencesTable) {

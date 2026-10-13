@@ -21,7 +21,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 import org.apache.artemis.database.DatabaseProvider;
-import org.apache.artemis.database.data.DeleteReferenceData;
 import org.apache.artemis.database.data.ReferenceData;
 
 public class UpdateAckTXReferenceStatement extends BatchableStatement<ReferenceData> {
@@ -47,5 +46,4 @@ public class UpdateAckTXReferenceStatement extends BatchableStatement<ReferenceD
       preparedStatement.setLong(2, task.queueID);
       preparedStatement.setLong(3, task.messageID);
    }
-
 }
