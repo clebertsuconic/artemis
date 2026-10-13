@@ -111,7 +111,8 @@ public class MessagesAndReferencesDBQuery {
                long queueID = rs.getLong(5);
                boolean hasRef = !rs.wasNull();
                boolean paged = hasRef && "Y".equals(rs.getString(6));
-               long ackTX = rs.getLong(6);
+               long ackTXRaw = rs.getLong(10);
+               Long ackTX = rs.wasNull() ? null : ackTXRaw;
 
                if (messageID != currentID) {
                   // flush the previous message if there is one

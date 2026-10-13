@@ -17,19 +17,25 @@
 
 package org.apache.activemq.artemis.core.persistence.impl.journal;
 
+import javax.transaction.xa.Xid;
 import java.io.PrintStream;
 import java.sql.Connection;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorageManager;
 import org.apache.activemq.artemis.utils.TableOut;
+import org.apache.activemq.artemis.utils.XidCodecSupport;
 import org.apache.artemis.database.DatabaseProvider;
 import org.apache.artemis.database.data.MessageDataReferenceMerged;
+import org.apache.artemis.database.data.PrepareTXData;
 import org.apache.artemis.database.queries.AddressJDBCQuery;
 import org.apache.artemis.database.queries.GenericDataJDBCQuery;
 import org.apache.artemis.database.queries.MessagesAndReferencesDBQuery;
+import org.apache.artemis.database.queries.PreparedTXQuery;
 import org.apache.artemis.database.queries.QueueJDBCQuery;
 
 public class DescribeNewDatabase {
@@ -42,6 +48,8 @@ public class DescribeNewDatabase {
          printSection(out, "A D D R E S S E S", () -> printAddresses(databaseProvider, connection, out));
 
          printSection(out, "Q U E U E S", () -> printQueues(databaseProvider, connection, out));
+
+         printPreparedTransactions(databaseProvider, connection, out);
 
          printSection(out, "C O N F I G   D A T A", () -> printGenericData(databaseProvider, connection, out, true));
 
@@ -127,19 +135,20 @@ public class DescribeNewDatabase {
       tableOut.printSeparator(out);
 
       AtomicInteger count = new AtomicInteger();
-      MessagesAndReferencesDBQuery query = new MessagesAndReferencesDBQuery(databaseProvider, connection);
+      MessagesAndReferencesDBQuery query = new MessagesAndReferencesDBQuery(databaseProvider, connection, "");
       query.query(data -> {
+         String idStr = data.tx() != null ? data.messageID() + "(tx=" + data.tx() + ")" : String.valueOf(data.messageID());
          String memEstStr = String.valueOf(data.memoryEstimate());
          String queuesStr = formatQueues(data);
          if (safe) {
             int size = data.messageBufferSupplier() != null ? data.messageBufferSupplier().get().readableBytes() : 0;
-            tableOut.print(out, new String[]{String.valueOf(data.messageID()), memEstStr, queuesStr, size + " bytes"});
+            tableOut.print(out, new String[]{idStr, memEstStr, queuesStr, size + " bytes"});
          } else {
             try {
                Message message = DatabaseStorageManager.decodeMessage(data.messageID(), data.isLarge(), data.isCore(), data.messageBufferSupplier(), data.messageBufferSupplier(), null);
-               tableOut.print(out, new String[]{String.valueOf(data.messageID()), memEstStr, queuesStr, String.valueOf(message)});
+               tableOut.print(out, new String[]{idStr, memEstStr, queuesStr, String.valueOf(message)});
             } catch (Exception e) {
-               tableOut.print(out, new String[]{String.valueOf(data.messageID()), memEstStr, queuesStr, "ERROR decoding: " + e.getMessage()});
+               tableOut.print(out, new String[]{idStr, memEstStr, queuesStr, "ERROR decoding: " + e.getMessage()});
             }
          }
          count.incrementAndGet();
@@ -163,6 +172,36 @@ public class DescribeNewDatabase {
       return sb.toString();
    }
 
+   private static void printPreparedTransactions(DatabaseProvider databaseProvider, Connection connection, PrintStream out) throws Exception {
+      List<PrepareTXData> preparedList = new ArrayList<>();
+      try {
+         PreparedTXQuery txQuery = new PreparedTXQuery(databaseProvider, connection);
+         txQuery.query(preparedList::add);
+      } catch (Exception e) {
+         out.println("WARNING: Could not read prepared transactions: " + e.getMessage());
+         return;
+      }
+
+      if (preparedList.isEmpty()) {
+         return;
+      }
+
+      printBanner(out, "P R E P A R E D   T R A N S A C T I O N S");
+      int[] columnSizes = {15, 150};
+      TableOut tableOut = new TableOut("|", 2, columnSizes);
+      tableOut.printTopSeparator(out);
+      tableOut.print(out, new String[]{"TX ID", "XID"});
+      tableOut.printSeparator(out);
+
+      for (PrepareTXData data : preparedList) {
+         Xid xid = XidCodecSupport.decodeXid(data.xid);
+         tableOut.print(out, new String[]{String.valueOf(data.getTx().getId()), xid.toString()});
+      }
+      tableOut.printBottomSeparator(out);
+      out.println("Total prepared transactions: " + preparedList.size());
+      out.println();
+   }
+
    private static void printGenericData(DatabaseProvider databaseProvider, Connection connection, PrintStream out, boolean bindings) throws Exception {
       String tableName = bindings ? databaseProvider.getSqlProvider().getConfigData() : databaseProvider.getSqlProvider().getBrokerData();
 
@@ -173,13 +212,14 @@ public class DescribeNewDatabase {
       tableOut.printSeparator(out);
 
       AtomicInteger count = new AtomicInteger();
-      GenericDataJDBCQuery query = new GenericDataJDBCQuery(databaseProvider, connection, tableName, bindings);
+      GenericDataJDBCQuery query = new GenericDataJDBCQuery(databaseProvider, connection, tableName, bindings, "");
       query.query(data -> {
          Object decoded = DatabaseStorageManager.describeGenericData(data.id, data.recordType, data.dataSupplier != null ? data.dataSupplier.get() : null);
 
+         String idStr = data.getTx() != null ? data.id + "(tx=" + data.getTx().getId() + ")" : String.valueOf(data.id);
          String decodedStr = decoded != null ? decoded.toString() : "UNKNOWN(type=" + data.recordType + ")";
          String typeStr = data.recordType + " (" + JournalRecordIds.recordTypeName(data.recordType) + ")";
-         tableOut.print(out, new String[]{String.valueOf(data.id), typeStr, decodedStr});
+         tableOut.print(out, new String[]{idStr, typeStr, decodedStr});
          count.incrementAndGet();
       });
       tableOut.printBottomSeparator(out);

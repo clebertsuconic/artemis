@@ -22,6 +22,7 @@ import java.lang.invoke.MethodHandles;
 import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -111,6 +112,7 @@ import org.apache.activemq.artemis.core.server.impl.DatabaseStorageMessageReader
 import org.apache.activemq.artemis.core.server.impl.JournalLoader;
 import org.apache.activemq.artemis.core.transaction.ResourceManager;
 import org.apache.activemq.artemis.core.transaction.Transaction;
+import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
 import org.apache.activemq.artemis.spi.core.protocol.MessagePersister;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
@@ -1079,7 +1081,18 @@ public class DatabaseStorageManager extends AbstractStorageManager {
          });
 
          PreparedTXLoader loader = new PreparedTXLoader();
-         loader.loadPreparedTransactions(databaseProvider, connection);
+         Map<Long, Queue> queues = new HashMap<>();
+         for (Long queueID : queueInfos.keySet()) {
+            Queue queue = postOffice.findQueue(queueID);
+            if (queue != null) {
+               queues.put(queueID, queue);
+            }
+         }
+
+         Collection<TransactionImpl> preparedTransactions = loader.loadPreparedTransactions(databaseProvider, connection, this, postOffice, queues);
+         for (TransactionImpl tx : preparedTransactions) {
+            resourceManager.putTransaction(tx.getXid(), tx, null);
+         }
       }
 
 
