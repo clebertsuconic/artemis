@@ -37,7 +37,6 @@ import org.apache.activemq.artemis.tests.db.dbstorage.statements.AbstractStateme
 import org.apache.activemq.artemis.tests.extensions.parameterized.ParameterizedTestExtension;
 import org.apache.activemq.artemis.tests.util.CFUtil;
 import org.apache.activemq.artemis.utils.Wait;
-import org.apache.artemis.database.DatabaseProvider;
 import org.apache.artemis.database.sql.SQLProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;

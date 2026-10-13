@@ -31,12 +31,14 @@ import org.apache.activemq.artemis.core.persistence.impl.journal.codec.Duplicate
 import org.apache.activemq.artemis.core.postoffice.DuplicateIDCache;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
+import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
 import org.apache.activemq.artemis.utils.XidCodecSupport;
 import org.apache.artemis.database.DatabaseProvider;
 import org.apache.artemis.database.DatabaseTX;
+import org.apache.artemis.database.data.DeleteReferenceData;
 import org.apache.artemis.database.data.GenericData;
 import org.apache.artemis.database.data.MessageData;
 import org.apache.artemis.database.data.MessageReferenceData;
@@ -52,7 +54,11 @@ public class PreparedTXLoader {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-   public Collection<TransactionImpl> loadPreparedTransactions(DatabaseProvider dbProvider, Connection connection, DatabaseStorageManager storageManager, PostOffice postOffice, Map<Long, Queue> queues) throws Exception {
+   public Collection<TransactionImpl> loadPreparedTransactions(DatabaseProvider dbProvider,
+                                                               Connection connection,
+                                                               DatabaseStorageManager storageManager,
+                                                               PostOffice postOffice,
+                                                               Map<Long, Queue> queues) throws Exception {
       PreparedTXQuery txQuery = new PreparedTXQuery(dbProvider, connection);
       ArrayList<PrepareTXData> list = new ArrayList<>();
       txQuery.query(list::add);
@@ -103,23 +109,52 @@ public class PreparedTXLoader {
                Message message = DatabaseStorageManager.decodeMessage(d.messageID(), d.isLarge(), d.isCore(), d.messageBufferSupplier(), d.largeBodySupplier(), storageManager);
 
                for (var ref : d.queues()) {
-                  if (!ref.paged() && ref.ackTx() == null) {
+                  if (ref.ackTx() == null) {
                      MessageReferenceData referenceData = new MessageReferenceData(d.messageID(), ref.queueID(), ref.paged(), d.tx(), null);
                      databaseTX.addData(referenceData);
-                     Queue queue = queues.get(ref.queueID());
-                     if (queue == null) {
-                        ActiveMQServerLogger.LOGGER.journalMessageInPreparedTX(ref.queueID());
-                        continue;
-                     }
-                     try {
-                        postOffice.reload(message, queue, txImpl);
-                     } catch (Exception e) {
-                        logger.warn(e.getMessage(), e);
+                     if (!ref.paged()) {
+                        Queue queue = queues.get(ref.queueID());
+                        if (queue == null) {
+                           ActiveMQServerLogger.LOGGER.journalMessageInPreparedTX(ref.queueID());
+                           continue;
+                        }
+                        try {
+                           postOffice.reload(message, queue, txImpl);
+                        } catch (Exception e) {
+                           logger.warn(e.getMessage(), e);
+                        }
                      }
                   }
                }
 
             }
+         } else {
+            for (var ref : d.queues()) {
+               if (ref.ackTx() != null) {
+                  TransactionImpl txImpl = transactionMap.get(ref.ackTx());
+                  if (txImpl != null) {
+                     DatabaseTX databaseTX = (DatabaseTX) txImpl.getStorageTx();
+                     DeleteReferenceData referenceData = new DeleteReferenceData(ref.queueID(), d.messageID(), null);
+                     databaseTX.addData(referenceData);
+                     Queue queue = queues.get(ref.queueID());
+                     if (queue == null) {
+                        ActiveMQServerLogger.LOGGER.journalMessageAckMissingQueueInPreparedTX(ref.queueID());
+                     } else {
+                        try {
+                           MessageReference removed = queue.removeReferenceWithID(d.messageID());
+                           if (removed == null) {
+                              ActiveMQServerLogger.LOGGER.journalErrorRemovingRef(d.messageID());
+                           } else {
+                              queue.reacknowledge(txImpl, removed);
+                           }
+                        } catch (Exception e) {
+                           logger.warn(e.getMessage(), e);
+                        }
+                     }
+                  }
+               }
+            }
+
          }
       });
 

@@ -74,7 +74,8 @@ public class DatabaseTX implements StorageTX {
       if (context != null) {
          context.done();
       }
-      if (status != null){
+
+      if (status != null) {
          switch (status) {
             case preparing -> setStatus(TXStatus.prepared);
             case onePhaseCommitting, twoPhaseCommitting -> setStatus(TXStatus.committed);
