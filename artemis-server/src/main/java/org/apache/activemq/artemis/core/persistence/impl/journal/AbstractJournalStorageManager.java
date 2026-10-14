@@ -167,6 +167,8 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
 
    private static final long CHECKPOINT_BATCH_SIZE = Integer.MAX_VALUE;
 
+   private volatile PagingStore mirrorSNFPagingStore;
+
    protected BatchingIDGenerator idGenerator;
 
    protected Journal messageJournal;
@@ -1983,10 +1985,29 @@ public abstract class AbstractJournalStorageManager extends AbstractStorageManag
    }
 
    @Override
+   public void setMirrorSNFPagingStore(PagingStore snfPagingStore) {
+      this.mirrorSNFPagingStore = snfPagingStore;
+   }
+
+   @Override
    public boolean flowControl(PagingStore store, Runnable block, Runnable release) {
       if (store != null) {
-         return store.flowControl(block, release);
+         if (store.flowControl(block, release)) {
+            if (logger.isDebugEnabled()) {
+               logger.debug("Blocking flowControl from regular storage {}", store.getAddress());
+            }
+            return true;
+         }
       }
+
+      PagingStore snfStore = this.mirrorSNFPagingStore;
+      if (snfStore != null && snfStore != store) {
+         if (snfStore.flowControl(block, release)) {
+            logger.debug("Blocking flowControl from mirrorSNF {}", snfStore.getAddress());
+            return true;
+         }
+      }
+
       return false;
    }
 

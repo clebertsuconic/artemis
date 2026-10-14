@@ -2111,13 +2111,18 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
       storageFlowControl(null);
    }
 
+   private volatile long blockedPeriod = 0L;
+   private volatile boolean blocked = false;
    private void storageFlowControl(SimpleString address) {
+      if (blocked) {
+         return;
+      }
       PagingStore pagingStore = null;
       if (address != null) {
          try {
             pagingStore = server.getPagingManager().getPageStore(address);
          } catch (Exception e) {
-            logger.debug(e.getMessage(), e);
+            logger.warn(e.getMessage(), e);
          }
       }
       storageManager.flowControl(pagingStore, blockRunnable, unblockRunnable);
@@ -2129,8 +2134,12 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
       try {
          remotingConnection.getTransportConnection().setAutoRead(true);
       } catch (Throwable e) {
-         // nothing that we could do about it.. just log
          logger.warn(e.getMessage(), e);
+      } finally {
+         if (logger.isDebugEnabled()) {
+            logger.debug("Resuming reading on session {} connection {}", name, remotingConnection.getRemoteAddress());
+         }
+         blocked = false;
       }
    }
 
@@ -2139,8 +2148,11 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
    private void block() {
       try {
          remotingConnection.getTransportConnection().setAutoRead(false);
+         if (logger.isDebugEnabled()) {
+            logger.debug("Blocking reading on session {} connection {}", name, remotingConnection.getRemoteAddress());
+         }
+         blocked = true;
       } catch (Throwable e) {
-         // nothing that we could do about it.. just log
          logger.warn(e.getMessage(), e);
       }
    }

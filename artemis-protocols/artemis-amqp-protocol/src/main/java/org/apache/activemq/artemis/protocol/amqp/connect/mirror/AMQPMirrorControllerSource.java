@@ -185,6 +185,8 @@ public class AMQPMirrorControllerSource extends BasicMirrorController<Sender> im
       this.sync = replicaConfig.isSync();
       this.pagedRouteContext = new PagedRouteContext(snfQueue);
 
+      server.getStorageManager().setMirrorSNFPagingStore(snfQueue.getPagingStore());
+
       if (sync) {
          logger.debug("Mirror is configured to sync, so pageStore={} being enforced to BLOCK, and not page", snfQueue.getName());
          snfQueue.getPagingStore().enforceAddressFullMessagePolicy(AddressFullMessagePolicy.BLOCK);
