@@ -88,6 +88,9 @@ public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQ
       return false;
    }
 
+   default void setMirrorSNFPagingStore(PagingStore snfPagingStore) {
+   }
+
    default PagingManager createPagingManager(ActiveMQServer server) throws Exception {
       return null;
    }
