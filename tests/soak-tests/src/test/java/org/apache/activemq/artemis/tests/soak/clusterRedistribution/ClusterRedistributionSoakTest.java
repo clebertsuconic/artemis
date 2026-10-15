@@ -26,6 +26,7 @@ import javax.jms.Message;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
 import javax.jms.Session;
+import javax.jms.TextMessage;
 import java.io.File;
 import java.lang.invoke.MethodHandles;
 import java.util.Properties;
@@ -313,7 +314,9 @@ public class ClusterRedistributionSoakTest extends SoakTestBase {
                      logger.info("Server {} was restarted after connection was open, need to restart connection for producer", serverRecord.serverId);
                      break;
                   }
-                  producer.send(session.createTextMessage("server-" + serverRecord.serverId + "-msg-" + localSent));
+                  TextMessage message = session.createTextMessage("server-" + serverRecord.serverId + "-msg-" + localSent);
+                  message.setStringProperty("userKey", serverRecord.serverId + "-" + localSent);
+                  producer.send(message);
                   localSent++;
                   int sent = totalSent.incrementAndGet();
                   if (localSent % 100 == 0) {
@@ -358,10 +361,20 @@ public class ClusterRedistributionSoakTest extends SoakTestBase {
                      if (msg != null) {
                         missedReceive = 0;
                         localReceived++;
-                        String msgId = msg.getJMSMessageID();
+                        String msgId = msg.getStringProperty("userKey");
+                        if (msgId == null) {
+                           errors.incrementAndGet();
+                           logger.warn("MessageID wasn't supposed to be null");
+                           return;
+                        }
                         if (!receivedMessageIds.add(msgId)) {
                            int totalDuplicates = duplicates.incrementAndGet();
                            logger.warn("Duplicate message detected: id={}, server={}, totalReceived={}, duplicates={}", msgId, serverRecord.serverId, totalReceived, totalDuplicates);
+                           logger.warn("Duplicate message detected: id={}, server={}, totalReceived={}, duplicates={}", msgId, serverRecord.serverId, totalReceived, totalDuplicates);
+                           logger.warn("Duplicate message detected: id={}, server={}, totalReceived={}, duplicates={}", msgId, serverRecord.serverId, totalReceived, totalDuplicates);
+                           logger.warn("Duplicate message detected: id={}, server={}, totalReceived={}, duplicates={}", msgId, serverRecord.serverId, totalReceived, totalDuplicates);
+                           logger.warn("Duplicate message detected: id={}, server={}, totalReceived={}, duplicates={}", msgId, serverRecord.serverId, totalReceived, totalDuplicates);
+                           Runtime.getRuntime().halt(-1);
                         }
                         if (localReceived % 100 == 0) {
                            logger.info("Consumer server={} locallyReceived={} totalReceived={} duplicates={}", serverRecord.serverId, localReceived, totalReceived, duplicates);
