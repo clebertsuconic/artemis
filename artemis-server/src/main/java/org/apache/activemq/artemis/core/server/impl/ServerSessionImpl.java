@@ -32,6 +32,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.activemq.artemis.Closeable;
 import org.apache.activemq.artemis.api.config.ActiveMQDefaultConfiguration;
@@ -108,6 +110,7 @@ import org.apache.activemq.artemis.utils.CertificateUtil;
 import org.apache.activemq.artemis.utils.CompositeAddress;
 import org.apache.activemq.artemis.utils.JsonLoader;
 import org.apache.activemq.artemis.utils.PrefixUtil;
+import org.apache.activemq.artemis.utils.SystemPropertyHelper;
 import org.apache.activemq.artemis.utils.collections.TypedProperties;
 import org.apache.activemq.artemis.utils.critical.CriticalComponentImpl;
 import org.apache.activemq.artemis.utils.runnables.AtomicRunnable;
@@ -2111,12 +2114,31 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
       storageFlowControl(null);
    }
 
-   private volatile long blockedPeriod = 0L;
+   // Maximum time (in milliseconds) to wait for storage to flush when applying backpressure on producers that are sending faster than the storage can persist.
+   private static final long SLOW_DOWN_TIMEOUT = SystemPropertyHelper.getLongProperty("org.apache.activemq.artemis.slowDownTimeout", "ARTEMIS_SLOW_DOWN_TIMEOUT", 100);
+
+   private void slowDown() {
+      boolean result = false;
+      try {
+         result = slowDownSemaphore.tryAcquire(SLOW_DOWN_TIMEOUT, TimeUnit.MILLISECONDS);
+      } catch (Throwable ignored) {
+      }
+
+      if (result) {
+         slowDownSemaphore.release();
+      }
+   }
+
+   private Semaphore slowDownSemaphore = new Semaphore(1);
    private volatile boolean blocked = false;
    private void storageFlowControl(SimpleString address) {
       if (blocked) {
+         // I can't block when the storage cannot process fast enough.
+         // however I need to slow down, mainly for the openwire case
+         slowDown();
          return;
       }
+
       PagingStore pagingStore = null;
       if (address != null) {
          try {
@@ -2140,6 +2162,7 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
             logger.debug("Resuming reading on session {} connection {}", name, remotingConnection.getRemoteAddress());
          }
          blocked = false;
+         slowDownSemaphore.release();
       }
    }
 
@@ -2148,6 +2171,8 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
    private void block() {
       try {
          remotingConnection.getTransportConnection().setAutoRead(false);
+         boolean result = slowDownSemaphore.tryAcquire(10, TimeUnit.SECONDS);
+         assert result : "cannot acquire slowDown semaphore";
          if (logger.isDebugEnabled()) {
             logger.debug("Blocking reading on session {} connection {}", name, remotingConnection.getRemoteAddress());
          }
