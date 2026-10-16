@@ -2111,12 +2111,12 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
       storageFlowControl(null);
    }
 
-   private volatile long blockedPeriod = 0L;
    private volatile boolean blocked = false;
    private void storageFlowControl(SimpleString address) {
       if (blocked) {
          return;
       }
+
       PagingStore pagingStore = null;
       if (address != null) {
          try {
@@ -2132,7 +2132,7 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
    private final Runnable unblockRunnable = this::unblock;
    private void unblock() {
       try {
-         remotingConnection.getTransportConnection().setAutoRead(true);
+         remotingConnection.unblock();
       } catch (Throwable e) {
          logger.warn(e.getMessage(), e);
       } finally {
@@ -2147,10 +2147,7 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
    private final Runnable blockRunnable = this::block;
    private void block() {
       try {
-         remotingConnection.getTransportConnection().setAutoRead(false);
-         if (logger.isDebugEnabled()) {
-            logger.debug("Blocking reading on session {} connection {}", name, remotingConnection.getRemoteAddress());
-         }
+         remotingConnection.block();
          blocked = true;
       } catch (Throwable e) {
          logger.warn(e.getMessage(), e);

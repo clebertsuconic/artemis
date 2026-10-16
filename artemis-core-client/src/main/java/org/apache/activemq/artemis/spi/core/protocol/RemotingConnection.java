@@ -146,6 +146,14 @@ public interface RemotingConnection extends BufferHandler {
     */
    void destroy();
 
+   default void block() {
+      getTransportConnection().setAutoRead(false);
+   }
+
+   default void unblock() {
+      getTransportConnection().setAutoRead(true);
+   }
+
    /**
     * return the underlying Connection.
     *
