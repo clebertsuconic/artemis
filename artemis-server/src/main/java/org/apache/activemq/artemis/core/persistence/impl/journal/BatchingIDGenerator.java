@@ -84,7 +84,7 @@ public final class BatchingIDGenerator implements IDGenerator {
 
    public void persistCurrentID() {
       final long recordID = counter.incrementAndGet();
-      logger.info("Persisting current ID at {}", recordID);
+      logger.debug("Persisting current ID at {}", recordID);
       storeID(recordID, recordID);
    }
 
