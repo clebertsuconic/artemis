@@ -148,7 +148,7 @@ public interface RemotingConnection extends BufferHandler {
 
    default void block() {
       Connection connection = getTransportConnection();
-      if (connection != null){
+      if (connection != null) {
          connection.setAutoRead(false);
       }
    }
