@@ -238,6 +238,10 @@ public class DataManager extends ActiveMQScheduledComponent {
    }
 
    public void storeTX(StorageTX storageTX) {
+      if (storageTX == null) {
+         return;
+      }
+
       flushData(castTX(storageTX).dataList, storageTX);
    }
 
@@ -276,6 +280,9 @@ public class DataManager extends ActiveMQScheduledComponent {
 
 
    private void flushData(List<DBData> dbData, StorageTX storageTX) {
+      if (dbData == null) {
+         return;
+      }
       if (!acquireLock()) {
          return;
       }
