@@ -19,9 +19,11 @@ package org.apache.activemq.artemis.tests.db.dbstorage.integration;
 import javax.jms.ConnectionFactory;
 import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
+import javax.jms.QueueBrowser;
 import javax.jms.Session;
 import javax.jms.Topic;
 import java.lang.invoke.MethodHandles;
+import java.util.Enumeration;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
@@ -82,7 +84,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DisabledIf("isNoDatabaseSelected")
 @ExtendWith(ParameterizedTestExtension.class)
-public class ServerIntegrationTest extends AbstractStatementTest {
+public class StorageIntegrationTest extends AbstractStatementTest {
 
    private static final String QUEUE_NAME = "queue" + RandomUtil.randomUUIDString();
 
@@ -694,7 +696,7 @@ public class ServerIntegrationTest extends AbstractStatementTest {
             p.destroy();
             done.countDown();
          }
-      }, ServerIntegrationTest.class.getName(), new String[0], true);
+      }, StorageIntegrationTest.class.getName(), new String[0], true);
       processRef.set(process);
       runAfter(process::destroyForcibly);
 
@@ -997,6 +999,70 @@ public class ServerIntegrationTest extends AbstractStatementTest {
             Wait.assertEquals(0, () -> selectCount(jdbcConnection, sqlProvider.getRefs()), 5000, 100);
             Wait.assertEquals(0, () -> selectCount(jdbcConnection, sqlProvider.getMessages()), 5000, 100);
          }
+      }
+
+      server.stop();
+   }
+
+   @TestTemplate
+   public void testBrowsing() throws Exception {
+      testBrowsing(false);
+   }
+
+   @TestTemplate
+   public void testBrowsingPaging() throws Exception {
+      testBrowsing(true);
+   }
+
+   private void testBrowsing(boolean paging) throws Exception {
+      int nMessages = 100;
+
+      ActiveMQServer server = createServer(true, configuration);
+      if (paging) {
+         server.getConfiguration().getAddressSettings().clear();
+         server.getConfiguration().addAddressSetting("#", new AddressSettings().setAddressFullMessagePolicy(AddressFullMessagePolicy.PAGE).setMaxSizeMessages(10));
+      }
+      server.getConfiguration().addAddressConfiguration(new CoreAddressConfiguration()
+         .setName(QUEUE_NAME)
+         .addRoutingType(RoutingType.ANYCAST)
+         .addQueueConfiguration(QueueConfiguration.of(QUEUE_NAME).setRoutingType(RoutingType.ANYCAST)));
+      server.start();
+
+      ConnectionFactory factory = CFUtil.createConnectionFactory("CORE", "tcp://localhost:61616");
+      try (javax.jms.Connection connection = factory.createConnection()) {
+         try (Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            MessageProducer producer = session.createProducer(session.createQueue(QUEUE_NAME));
+            for (int i = 0; i < nMessages; i++) {
+               producer.send(session.createTextMessage("browse-test-" + i));
+            }
+         }
+
+         connection.start();
+
+         try (Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            QueueBrowser browser = session.createBrowser(session.createQueue(QUEUE_NAME));
+            Enumeration<?> enumeration = browser.getEnumeration();
+            int browsedCount = 0;
+            while (enumeration.hasMoreElements()) {
+               javax.jms.Message msg = (javax.jms.Message) enumeration.nextElement();
+               assertNotNull(msg);
+               browsedCount++;
+            }
+            assertEquals(nMessages, browsedCount);
+            browser.close();
+         }
+
+         // browsing should not consume messages
+         checkMessageCounts(nMessages, false);
+
+         /*try (Session session = connection.createSession(true, Session.SESSION_TRANSACTED)) {
+            MessageConsumer consumer = session.createConsumer(session.createQueue(QUEUE_NAME));
+            for (int i = 0; i < nMessages; i++) {
+               assertNotNull(consumer.receive(5000));
+            }
+            session.commit();
+            checkMessageCounts(0, true);
+         } */
       }
 
       server.stop();
