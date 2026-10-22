@@ -82,6 +82,7 @@ import org.apache.activemq.artemis.core.persistence.config.PersistedSecuritySett
 import org.apache.activemq.artemis.core.persistence.config.PersistedUser;
 import org.apache.activemq.artemis.core.persistence.impl.AbstractStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.PageCountPending;
+import org.apache.activemq.artemis.core.persistence.impl.database.browserIterator.DatabasePendingMessagesIterator;
 import org.apache.activemq.artemis.core.persistence.impl.database.sequential.MemorySequentialFile;
 import org.apache.activemq.artemis.core.persistence.impl.journal.AbstractJournalStorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.BatchingIDGenerator;
@@ -117,6 +118,7 @@ import org.apache.activemq.artemis.spi.core.protocol.MessagePersister;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.ExecutorFactory;
 import org.apache.activemq.artemis.utils.IDGenerator;
+import org.apache.activemq.artemis.utils.collections.CloseableIterator;
 import org.apache.activemq.artemis.utils.critical.CriticalAnalyzer;
 import org.apache.artemis.database.DatabaseProvider;
 import org.apache.artemis.database.DatabaseTX;
@@ -199,6 +201,19 @@ public class DatabaseStorageManager extends AbstractStorageManager {
    public void stop() throws Exception {
       super.stop();
       stop(false, true);
+   }
+
+   public DatabaseProvider getDatabaseProvider() {
+      return databaseProvider;
+   }
+
+   public DatabaseStorageConfiguration getDatabaseConfiguration() {
+      return databaseConfiguration;
+   }
+
+   @Override
+   public CloseableIterator<MessageReference> pendingMessagesIterator(Queue queue) {
+      return new DatabasePendingMessagesIterator(this, queue, 100);
    }
 
    @Override

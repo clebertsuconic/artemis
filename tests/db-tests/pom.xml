@@ -490,7 +490,7 @@
                      <javaOptions>-Djava.net.preferIPv4Stack=true</javaOptions>
                      <instance>${basedir}/target/new-postgres</instance>
                      <configuration>${basedir}/target/classes/servers/postgres</configuration>
-                     <noWeb>true</noWeb>
+                     <noWeb>false</noWeb>
                      <libListWithDeps>
                         <arg>org.postgresql:postgresql:42.6.0</arg>
                      </libListWithDeps>

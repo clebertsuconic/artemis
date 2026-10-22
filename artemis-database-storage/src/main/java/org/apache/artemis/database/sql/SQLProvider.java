@@ -149,7 +149,12 @@ public abstract class SQLProvider {
    }
 
    public String deliverPendingMessagesJoinFetch(String messagesTable, String referencesTable) {
-      return "SELECT DR.MESSAGE_ID, DM.MESSAGE_RECORD, DM.MEMORY_ESTIMATE, DM.IS_LARGE, DM.LARGE_BODY, DM.IS_CORE FROM " + referencesTable + " DR, " + messagesTable + " DM WHERE DR.QUEUE_ID=? AND DR.PAGED='Y' AND DR.MESSAGE_ID = DM.MESSAGE_ID AND DM.TX_ID IS NULL ORDER BY DR.MESSAGE_ID";
+      return deliverPendingMessagesJoinFetch(messagesTable, referencesTable, null);
+   }
+
+   public String deliverPendingMessagesJoinFetch(String messagesTable, String referencesTable, String extraClause) {
+      String extraClauseAddition = extraClause != null ? (" AND " + extraClause) : "";
+      return "SELECT DR.MESSAGE_ID, DM.MESSAGE_RECORD, DM.MEMORY_ESTIMATE, DM.IS_LARGE, DM.LARGE_BODY, DM.IS_CORE FROM " + referencesTable + " DR, " + messagesTable + " DM WHERE DR.QUEUE_ID=? AND DR.PAGED='Y' AND DR.MESSAGE_ID = DM.MESSAGE_ID AND DM.TX_ID IS NULL " + extraClauseAddition + " ORDER BY DR.MESSAGE_ID";
    }
 
    public String updatePendingDelivery(String tableName) {

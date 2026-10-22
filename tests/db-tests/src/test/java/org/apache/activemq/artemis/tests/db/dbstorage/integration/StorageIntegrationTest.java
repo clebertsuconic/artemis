@@ -43,6 +43,7 @@ import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.config.CoreAddressConfiguration;
 import org.apache.activemq.artemis.core.paging.dbimpl.DatabasePagingStoreImpl;
 import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorageManager;
+import org.apache.activemq.artemis.core.persistence.impl.database.browserIterator.DatabasePendingMessagesIterator;
 import org.apache.activemq.artemis.core.persistence.impl.journal.BatchingIDGenerator;
 import org.apache.activemq.artemis.core.persistence.impl.journal.JournalRecordIds;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
@@ -1015,12 +1016,14 @@ public class StorageIntegrationTest extends AbstractStatementTest {
    }
 
    private void testBrowsing(boolean paging) throws Exception {
-      int nMessages = 100;
+      int nMessages = 5000;
+
+      int maxSizeMessagesWhenPaging = 10;
 
       ActiveMQServer server = createServer(true, configuration);
       if (paging) {
          server.getConfiguration().getAddressSettings().clear();
-         server.getConfiguration().addAddressSetting("#", new AddressSettings().setAddressFullMessagePolicy(AddressFullMessagePolicy.PAGE).setMaxSizeMessages(10));
+         server.getConfiguration().addAddressSetting("#", new AddressSettings().setAddressFullMessagePolicy(AddressFullMessagePolicy.PAGE).setMaxSizeMessages(maxSizeMessagesWhenPaging));
       }
       server.getConfiguration().addAddressConfiguration(new CoreAddressConfiguration()
          .setName(QUEUE_NAME)
@@ -1030,10 +1033,33 @@ public class StorageIntegrationTest extends AbstractStatementTest {
 
       ConnectionFactory factory = CFUtil.createConnectionFactory("CORE", "tcp://localhost:61616");
       try (javax.jms.Connection connection = factory.createConnection()) {
-         try (Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+         try (Session session = connection.createSession(true, Session.SESSION_TRANSACTED)) {
             MessageProducer producer = session.createProducer(session.createQueue(QUEUE_NAME));
-            for (int i = 0; i < nMessages; i++) {
-               producer.send(session.createTextMessage("browse-test-" + i));
+            for (int i = 1; i <= nMessages; i++) {
+               javax.jms.Message message = session.createTextMessage("test-" + i);
+               message.setIntProperty("i", i);
+               producer.send(message);
+               if (i < 100) {
+                  session.commit();
+               } else if (i % 100 == 0) {
+                  session.commit();
+               }
+            }
+            session.commit();
+         }
+
+         if (paging) {
+            Queue serverQueue = server.locateQueue(QUEUE_NAME);
+            // use the query directly to validate the delivery
+            try (DatabasePendingMessagesIterator databasePendingMessagesIterator = new DatabasePendingMessagesIterator((DatabaseStorageManager) server.getStorageManager(), serverQueue, 500)) {
+               int currentID = maxSizeMessagesWhenPaging + 1;
+               while (databasePendingMessagesIterator.hasNext()) {
+                  MessageReference ref = databasePendingMessagesIterator.next();
+                  logger.info("message = {}", ref.getMessage());
+                  assertEquals(currentID, ref.getMessage().getIntProperty("i"));
+                  currentID++;
+               }
+               assertEquals(nMessages, currentID - 1);
             }
          }
 
@@ -1042,13 +1068,15 @@ public class StorageIntegrationTest extends AbstractStatementTest {
          try (Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
             QueueBrowser browser = session.createBrowser(session.createQueue(QUEUE_NAME));
             Enumeration<?> enumeration = browser.getEnumeration();
-            int browsedCount = 0;
+            int browsedCount = 1;
             while (enumeration.hasMoreElements()) {
                javax.jms.Message msg = (javax.jms.Message) enumeration.nextElement();
                assertNotNull(msg);
+               logger.info("xxxxx message {}, id={}", msg, msg.getIntProperty("i"));
+               assertEquals(browsedCount, msg.getIntProperty("i"));
                browsedCount++;
             }
-            assertEquals(nMessages, browsedCount);
+            assertEquals(nMessages, browsedCount - 1);
             browser.close();
          }
 

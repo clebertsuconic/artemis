@@ -19,6 +19,7 @@ package org.apache.activemq.artemis.core.persistence;
 import javax.transaction.xa.Xid;
 import java.nio.ByteBuffer;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -62,6 +63,7 @@ import org.apache.activemq.artemis.core.replication.ReplicationManager;
 import org.apache.activemq.artemis.core.server.ActiveMQComponent;
 import org.apache.activemq.artemis.core.server.LargeServerMessage;
 import org.apache.activemq.artemis.core.server.MessageReference;
+import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.server.RouteContextList;
 import org.apache.activemq.artemis.core.server.files.FileStoreMonitor;
 import org.apache.activemq.artemis.core.server.group.impl.GroupBinding;
@@ -72,6 +74,7 @@ import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.spi.core.protocol.RemotingConnection;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.IDGenerator;
+import org.apache.activemq.artemis.utils.collections.CloseableIterator;
 
 /**
  * A StorageManager
@@ -132,6 +135,9 @@ public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQ
 
    }
 
+   default CloseableIterator<MessageReference> pendingMessagesIterator(Queue queue) {
+      return null;
+   }
 
    default StorageTX generateTX(long id) {
       return null;

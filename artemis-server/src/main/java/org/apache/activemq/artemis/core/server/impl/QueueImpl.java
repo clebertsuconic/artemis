@@ -118,6 +118,7 @@ import org.apache.activemq.artemis.utils.ReferenceCounter;
 import org.apache.activemq.artemis.utils.ReusableLatch;
 import org.apache.activemq.artemis.utils.SizeAwareMetric;
 import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
+import org.apache.activemq.artemis.utils.collections.CloseableIterator;
 import org.apache.activemq.artemis.utils.collections.LinkedListIterator;
 import org.apache.activemq.artemis.utils.collections.NodeStoreFactory;
 import org.apache.activemq.artemis.utils.collections.PriorityLinkedList;
@@ -4235,6 +4236,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
       LinkedListIterator<PagedReference> pagingIterator = null;
       LinkedListIterator<MessageReference> messagesIterator = null;
+      CloseableIterator<MessageReference> pendingMessagesIterator = null;
 
       private LinkedListIterator<PagedReference> getPagingIterator() {
          if (pagingIterator == null && pageSubscription != null) {
@@ -4250,6 +4252,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
       private QueueBrowserIterator() {
          messagesIterator = new SynchronizedIterator(messageReferences.iterator());
+         pendingMessagesIterator = storageManager.pendingMessagesIterator(QueueImpl.this);
       }
 
       @Override
@@ -4275,6 +4278,11 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
                lastIterator = pagingIterator;
                return true;
             }
+         }
+
+         if (pendingMessagesIterator != null && pendingMessagesIterator.hasNext()) {
+            cachedNext = pendingMessagesIterator.next();
+            return true;
          }
 
          return false;
@@ -4335,6 +4343,10 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
             }
          }
 
+         if (pendingMessagesIterator != null && pendingMessagesIterator.hasNext()) {
+            return pendingMessagesIterator.next();
+         }
+
          throw new NoSuchElementException();
       }
 
@@ -4365,6 +4377,12 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          }
          if (messagesIterator != null) {
             messagesIterator.close();
+         }
+         if (pendingMessagesIterator != null) {
+            try {
+               pendingMessagesIterator.close();
+            } catch (Exception ignored) {
+            }
          }
       }
    }
