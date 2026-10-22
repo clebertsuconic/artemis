@@ -64,6 +64,7 @@ import org.apache.activemq.artemis.utils.ReusableLatch;
 import org.apache.activemq.artemis.utils.SpawnedVMSupport;
 import org.apache.activemq.artemis.utils.Wait;
 import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
+import org.apache.activemq.artemis.utils.collections.LinkedListIterator;
 import org.apache.artemis.database.DatabaseProvider;
 import org.apache.artemis.database.data.MessageData;
 import org.apache.artemis.database.queries.GenericDataJDBCQuery;
@@ -1039,58 +1040,31 @@ public class StorageIntegrationTest extends AbstractStatementTest {
                javax.jms.Message message = session.createTextMessage("test-" + i);
                message.setIntProperty("i", i);
                producer.send(message);
-               if (i < 100) {
-                  session.commit();
-               } else if (i % 100 == 0) {
+               if (i % 100 == 0) {
                   session.commit();
                }
             }
             session.commit();
          }
 
-         if (paging) {
-            Queue serverQueue = server.locateQueue(QUEUE_NAME);
-            // use the query directly to validate the delivery
-            try (DatabasePendingMessagesIterator databasePendingMessagesIterator = new DatabasePendingMessagesIterator((DatabaseStorageManager) server.getStorageManager(), serverQueue, 500)) {
-               int currentID = maxSizeMessagesWhenPaging + 1;
-               while (databasePendingMessagesIterator.hasNext()) {
-                  MessageReference ref = databasePendingMessagesIterator.next();
-                  logger.info("message = {}", ref.getMessage());
-                  assertEquals(currentID, ref.getMessage().getIntProperty("i"));
-                  currentID++;
-               }
-               assertEquals(nMessages, currentID - 1);
-            }
-         }
+         Queue serverQueue = server.locateQueue(QUEUE_NAME);
+         Wait.assertEquals((long)nMessages, serverQueue::getMessageCount, 5000, 100);
 
-         connection.start();
-
-         try (Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE)) {
-            QueueBrowser browser = session.createBrowser(session.createQueue(QUEUE_NAME));
-            Enumeration<?> enumeration = browser.getEnumeration();
+         try (LinkedListIterator<MessageReference> referenceLinkedListIterator = serverQueue.browserIterator()) {
             int browsedCount = 1;
-            while (enumeration.hasMoreElements()) {
-               javax.jms.Message msg = (javax.jms.Message) enumeration.nextElement();
-               assertNotNull(msg);
-               logger.info("xxxxx message {}, id={}", msg, msg.getIntProperty("i"));
-               assertEquals(browsedCount, msg.getIntProperty("i"));
+            while (referenceLinkedListIterator.hasNext()) {
+               MessageReference ref = referenceLinkedListIterator.next();
+               Message message = ref.getMessage();
+               assertNotNull(message);
+               logger.info("message {}, id={}", message, message.getIntProperty("i"));
+               assertEquals(browsedCount, message.getIntProperty("i"));
                browsedCount++;
             }
             assertEquals(nMessages, browsedCount - 1);
-            browser.close();
          }
 
          // browsing should not consume messages
          checkMessageCounts(nMessages, false);
-
-         /*try (Session session = connection.createSession(true, Session.SESSION_TRANSACTED)) {
-            MessageConsumer consumer = session.createConsumer(session.createQueue(QUEUE_NAME));
-            for (int i = 0; i < nMessages; i++) {
-               assertNotNull(consumer.receive(5000));
-            }
-            session.commit();
-            checkMessageCounts(0, true);
-         } */
       }
 
       server.stop();

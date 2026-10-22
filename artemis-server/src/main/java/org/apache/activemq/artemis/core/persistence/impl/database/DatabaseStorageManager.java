@@ -211,9 +211,10 @@ public class DatabaseStorageManager extends AbstractStorageManager {
       return databaseConfiguration;
    }
 
+   @SuppressWarnings("unchecked")
    @Override
-   public CloseableIterator<MessageReference> pendingMessagesIterator(Queue queue) {
-      return new DatabasePendingMessagesIterator(this, queue, 100);
+   public <T extends CloseableIterator<MessageReference>> T pendingMessagesIterator(Queue queue, int prefetch) {
+      return (T) new DatabasePendingMessagesIterator(this, queue, prefetch);
    }
 
    @Override
@@ -1328,7 +1329,7 @@ public class DatabaseStorageManager extends AbstractStorageManager {
 
    // A separate connection is used for deletes because some databases (e.g. PostgreSQL)
    // invalidate the cursor when a DML statement is executed on the same connection.
-   private void handleOrphanedMessages(Connection queryConnection) throws Exception {
+   public void handleOrphanedMessages(Connection queryConnection) throws Exception {
       final String deleteSQL = databaseProvider.getSqlProvider().deleteMessages(databaseProvider.getSqlProvider().getMessages(), databaseProvider.getSqlProvider().getRefs());
       final int flushCommit = 1000;
       final AtomicInteger countPending = new AtomicInteger(0);

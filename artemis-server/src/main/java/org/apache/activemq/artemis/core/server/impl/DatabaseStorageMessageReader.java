@@ -29,6 +29,7 @@ import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.persistence.impl.database.DatabaseStorageManager;
+import org.apache.activemq.artemis.core.persistence.impl.database.browserIterator.DatabasePendingMessagesIterator;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.core.server.Queue;
@@ -36,6 +37,7 @@ import org.apache.activemq.artemis.core.server.StorageMessageReader;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.core.transaction.TransactionOperationAbstract;
 import org.apache.activemq.artemis.core.transaction.TransactionPropertyIndexes;
+import org.apache.activemq.artemis.core.transaction.impl.TransactionImpl;
 import org.apache.activemq.artemis.utils.SizeAwareMetric;
 import org.apache.artemis.database.data.MessageData;
 import org.apache.artemis.database.queries.MessageDeliveryUpdater;
@@ -418,7 +420,7 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
          }
          queue.refUp(reference);
          queue.durableUp(m);
-         queue.addSorted(reference, false);
+         queue.addTail(reference, false);
       }
       queue.deliverAsync();
       // this call is always performed from a single thread call. no need to synchronized here
@@ -465,6 +467,48 @@ public class DatabaseStorageMessageReader implements StorageMessageReader {
                               boolean separatePageIterator,
                               QueueImpl.QueueIterateAction messageAction,
                               int count) throws Exception {
+
+
+      try (DatabasePendingMessagesIterator pendingMessagesIterator = databaseStorageManager.pendingMessagesIterator(queue, flushLimit)) {
+         Transaction tx = new TransactionImpl(queue.storageManager);
+         tx.setContainsPersistent();
+
+         int txCount = 0;
+
+         pendingMessagesIterator.openResources();
+
+         while (pendingMessagesIterator.hasNext() && !messageAction.expectedHitsReached(count)) {
+            MessageReference reference = pendingMessagesIterator.next();
+
+            boolean matched = messageAction.match(reference);
+            boolean acted = false;
+
+            if (matched) {
+               acted = messageAction.actMessage(tx, reference);
+            }
+
+            if (acted) {
+               txCount++;
+               databaseStorageManager.storeAcknowledgeTransactional(tx, queue.getID(), reference.getMessageID());
+
+               if (txCount > 0 && txCount % flushLimit == 0) {
+                  tx.commit();
+                  tx = new TransactionImpl(queue.storageManager);
+                  tx.setContainsPersistent();
+                  txCount = 0;
+               }
+            }
+         }
+
+         if (txCount > 0) {
+            tx.commit();
+         }
+      }
+
+      try (Connection connection = databaseStorageManager.getDatabaseProvider().getConnection()) {
+         databaseStorageManager.handleOrphanedMessages(connection);
+      }
+
       return count;
    }
 

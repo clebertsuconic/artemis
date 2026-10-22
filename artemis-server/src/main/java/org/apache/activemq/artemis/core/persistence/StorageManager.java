@@ -135,7 +135,7 @@ public interface StorageManager extends MapStorageManager, IDGenerator, ActiveMQ
 
    }
 
-   default CloseableIterator<MessageReference> pendingMessagesIterator(Queue queue) {
+   default <T extends CloseableIterator<MessageReference>> T pendingMessagesIterator(Queue queue, int prefetch) {
       return null;
    }
 

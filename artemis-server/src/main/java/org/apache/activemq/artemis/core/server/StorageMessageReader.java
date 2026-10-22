@@ -32,6 +32,7 @@ public interface StorageMessageReader {
    boolean allowDirectDelivery();
 
    int iterateMessages(String operationName, int flushLimit, boolean separatePageIterator, QueueImpl.QueueIterateAction messageAction, int count) throws Exception;
+
    default void addPendingAfterStorage(long elements, long size, Transaction tx) {
    }
 

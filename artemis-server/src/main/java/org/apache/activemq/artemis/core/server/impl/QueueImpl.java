@@ -2819,6 +2819,9 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
       int priority = getPriority(ref);
 
+      if (ref.getSequence() <= 0) {
+         ref.setSequence(queueSequence.incrementAndGet());
+      }
       messageReferences.addSorted(ref, priority);
 
       ref.setInDelivery(false);
@@ -4232,7 +4235,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
    //Readonly (no remove) iterator over the messages in the queue, in order of
    //paging store, intermediateMessageReferences and MessageReferences
-   private final class QueueBrowserIterator implements LinkedListIterator<MessageReference> {
+   public final class QueueBrowserIterator implements LinkedListIterator<MessageReference> {
 
       LinkedListIterator<PagedReference> pagingIterator = null;
       LinkedListIterator<MessageReference> messagesIterator = null;
@@ -4252,7 +4255,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
 
       private QueueBrowserIterator() {
          messagesIterator = new SynchronizedIterator(messageReferences.iterator());
-         pendingMessagesIterator = storageManager.pendingMessagesIterator(QueueImpl.this);
+         pendingMessagesIterator = storageManager.pendingMessagesIterator(QueueImpl.this, 100);
       }
 
       @Override
