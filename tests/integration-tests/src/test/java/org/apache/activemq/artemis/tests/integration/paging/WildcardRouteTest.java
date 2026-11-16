@@ -35,6 +35,7 @@ import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
 import org.apache.activemq.artemis.core.paging.PagingStore;
+import org.apache.activemq.artemis.core.paging.impl.PagingStoreImpl;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.Queue;
 import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
@@ -42,14 +43,19 @@ import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
 import org.apache.activemq.artemis.tests.util.CFUtil;
 import org.apache.activemq.artemis.tests.util.Wait;
+import org.apache.activemq.artemis.utils.SizeAwareMetric;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class WildcardRouteTest extends ActiveMQTestBase {
 
@@ -76,12 +82,22 @@ public class WildcardRouteTest extends ActiveMQTestBase {
    }
 
    public void printSizes() throws Exception {
-
       SimpleString[] stores = server.getPagingManager().getStoreNames();
 
       for (SimpleString q : stores) {
          PagingStore store = server.getPagingManager().getPageStore(q);
-         logger.info("Store {} has {} elements and {}", store.getAddress(), store.getAddressElements(), store.getAddressSize());
+         logger.debug("Store {} has {} elements and {}", store.getAddress(), store.getAddressElements(), store.getAddressSize());
+      }
+   }
+
+   public void printHierarchy() throws Exception {
+      for (String q : queueToReceive) {
+         PagingStoreImpl store = (PagingStoreImpl)server.getPagingManager().lookupPageStore(SimpleString.of(q));
+         if (store == null) {
+            logger.info("no address for {}", q);
+         } else {
+            logger.info("hierarchy from {}/{}:\n {}", q, store.getSizeMetric(), store.getSizeMetric().debugHierarchy());
+         }
       }
    }
 
@@ -151,7 +167,9 @@ public class WildcardRouteTest extends ActiveMQTestBase {
          }
       }
 
-      printSizes();
+      if (logger.isDebugEnabled()) {
+         printSizes();
+      }
 
       try (Connection connection = factory.createConnection()) {
          connection.start();
@@ -167,6 +185,51 @@ public class WildcardRouteTest extends ActiveMQTestBase {
          assertEquals(0L, store.getAddressSize());
       }
 
+      validateRemoveHierarchy();
+
+   }
+
+   private void validateRemoveHierarchy() throws Exception {
+      for (String q: queueToReceive) {
+         if (q.equals(addressToSend)) {
+            continue;
+         }
+         server.destroyQueue(SimpleString.of(q));
+      }
+
+      logger.info("Checking hierarchy.............................");
+      printHierarchy();
+
+      for (String q: queueToReceive) {
+         if (q.equals(addressToSend)) {
+            continue;
+         }
+         try {
+            server.removeAddressInfo(SimpleString.of(q), null);
+         } catch (Exception dontCare) {
+         }
+
+         assertNull(server.getPagingManager().lookupPageStore(SimpleString.of(q)));
+
+         for (String q2 : queueToReceive) {
+            PagingStoreImpl store = (PagingStoreImpl) server.getPagingManager().getPageStore(SimpleString.of(q2));
+            for (SizeAwareMetric m : store.getSizeMetric().getHierarchy()) {
+               assertNotSame(store, m.getOwner());
+               assertNotEquals(store, m.getOwner());
+
+            }
+         }
+         logger.debug("Removed hierarchy on {}", q);
+         printHierarchy();
+      }
+
+      for (String q : queueToReceive) {
+         PagingStoreImpl store = (PagingStoreImpl) server.getPagingManager().getPageStore(SimpleString.of(q));
+         assertTrue(store.getSizeMetric().getHierarchy().isEmpty());
+      }
+
+      logger.debug("Checking hierarchy.............................");
+      printHierarchy();
    }
 
    public void internalMultipleSends(boolean skipSendingQueue, boolean useFilterOnSkip) throws Exception {
@@ -193,7 +256,7 @@ public class WildcardRouteTest extends ActiveMQTestBase {
          assertEquals(numberOfMessages, leaveStore.getAddressElements());
       }
 
-      printSizes();
+      printHierarchy();
 
       try (Connection connection = factory.createConnection()) {
          connection.start();
@@ -210,12 +273,16 @@ public class WildcardRouteTest extends ActiveMQTestBase {
                logger.debug("Queue {}, message = {}", q, message.getText());
             }
 
-            logger.info("> > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > After receiving {}", q);
-            printSizes();
+            logger.debug("> > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > After receiving {}", q);
+            if (logger.isDebugEnabled()) {
+               printSizes();
+            }
          }
       }
 
-      printSizes();
+      if (logger.isDebugEnabled()) {
+         printSizes();
+      }
 
       PagingStore store = server.getPagingManager().getPageStore(SimpleString.of(addressToSend));
       assertEquals(0L, store.getAddressElements());
@@ -226,6 +293,8 @@ public class WildcardRouteTest extends ActiveMQTestBase {
          assertEquals(0L, store.getAddressElements());
          assertEquals(0, store.getAddressSize());
       }
+
+      validateRemoveHierarchy();
    }
 
    private void createHierarchicalQueues(Predicate<String> skipFilter, boolean useFilterStringOnSkipped) throws ActiveMQException {

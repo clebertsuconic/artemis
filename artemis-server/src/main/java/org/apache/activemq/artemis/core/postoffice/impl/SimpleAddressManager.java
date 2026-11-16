@@ -32,7 +32,6 @@ import org.apache.activemq.artemis.api.core.Pair;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.config.WildcardConfiguration;
-import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.postoffice.Address;
 import org.apache.activemq.artemis.core.postoffice.AddressManager;
@@ -244,20 +243,18 @@ public class SimpleAddressManager implements AddressManager {
       return addresses;
    }
 
-   protected Binding removeBindingInternal(final SimpleString address, final SimpleString bindableName) {
-      Binding removedBinding = null;
+   protected void removeBindingInternal(final SimpleString address, final SimpleString bindableName) {
       SimpleString realAddress = CompositeAddress.extractAddressName(address);
       Bindings bindings = mappings.get(realAddress);
 
       if (bindings != null) {
          final SimpleString bindableQueueName = CompositeAddress.extractQueueName(bindableName);
-         removedBinding = bindings.removeBindingByUniqueName(bindableQueueName);
-         if (removedBinding == null) {
+         final Binding binding = bindings.removeBindingByUniqueName(bindableQueueName);
+         if (binding == null) {
             throw new IllegalStateException("Cannot find binding " + bindableName);
          } else {
-            if (removedBinding instanceof LocalQueueBinding) {
-               removedBinding = (LocalQueueBinding) removedBinding;
-               localBindingsMap.remove(removedBinding.getID());
+            if (binding instanceof LocalQueueBinding) {
+               localBindingsMap.remove(binding.getID());
             }
          }
          if (bindings.getBindings().isEmpty()) {
@@ -265,8 +262,6 @@ public class SimpleAddressManager implements AddressManager {
             bindingsEmpty(realAddress, bindings);
          }
       }
-
-      return removedBinding;
    }
 
    protected void bindingsEmpty(SimpleString realAddress, Bindings bindings) {

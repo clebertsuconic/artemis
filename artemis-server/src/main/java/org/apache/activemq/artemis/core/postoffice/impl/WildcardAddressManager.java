@@ -130,7 +130,9 @@ public class WildcardAddressManager extends SimpleAddressManager {
                bindings.forEach((a, b) -> {
                   if (b.isLocal()) {
                      PagingStore store = ((LocalQueueBinding)b).getQueue().getPagingStore();
-                     store.addHierarchy(storeWild);
+                     if (store != storeWild) {
+                        store.addHierarchy(storeWild);
+                     }
                   }
                });
             }
@@ -155,31 +157,27 @@ public class WildcardAddressManager extends SimpleAddressManager {
    @Override
    public Binding removeBinding(final SimpleString uniqueName, Transaction tx) throws Exception {
       Binding binding = super.removeBinding(uniqueName, tx);
+      logger.info("Removing {}/{}", uniqueName, binding);
       if (binding != null) {
          SimpleString address = binding.getAddress();
          if (wildcardConfiguration.isWild(address)) {
-
-            addressMap.visitMatching(address, bindings -> removeBindingInternal(bindings.getName(), uniqueName));
-
+            addressMap.visitMatching(address, bindings -> removeHierarchy(bindings, uniqueName));
          }
       }
       return binding;
    }
 
-   @Override
-   protected Binding removeBindingInternal(final SimpleString address, final SimpleString uniqueName) {
-      Binding removedBinding  = super.removeBindingInternal(address, uniqueName);
-
-      if (removedBinding.isLocal()) {
-         try {
-            PagingStore wildStore = pagingManager.getPageStore(uniqueName);
-            LocalQueueBinding localQueueBinding = (LocalQueueBinding) removedBinding;
-            localQueueBinding.getQueue().getPagingStore().removeHierarchy(wildStore);
-         } catch (Exception e) {
-            logger.warn(e.getMessage(), e);
-         }
+   private void removeHierarchy(Bindings bindings, SimpleString uniqueName) throws Exception {
+      if (wildcardConfiguration.isWild(uniqueName)) {
+         PagingStore wildAddress = pagingManager.getPageStore(uniqueName);
+         bindings.forEach((s, b) -> {
+            if (b.isLocal()) {
+               PagingStore store = ((LocalQueueBinding) b).getQueue().getPagingStore();
+               store.removeHierarchy(wildAddress);
+            }
+         });
       }
-      return removedBinding;
+      removeBindingInternal(bindings.getName(), uniqueName);
    }
 
    @Override
