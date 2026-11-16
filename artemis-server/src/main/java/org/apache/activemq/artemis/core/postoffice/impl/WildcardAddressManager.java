@@ -16,8 +16,12 @@
  */
 package org.apache.activemq.artemis.core.postoffice.impl;
 
+import java.lang.invoke.MethodHandles;
+
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.config.WildcardConfiguration;
+import org.apache.activemq.artemis.core.paging.PagingManager;
+import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.postoffice.Binding;
 import org.apache.activemq.artemis.core.postoffice.Bindings;
@@ -28,13 +32,19 @@ import org.apache.activemq.artemis.core.server.impl.AddressInfo;
 import org.apache.activemq.artemis.core.server.metrics.MetricsManager;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.utils.CompositeAddress;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * extends the simple manager to allow wildcard addresses to be used.
  */
 public class WildcardAddressManager extends SimpleAddressManager {
 
+   private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+
    private final AddressMap<Bindings> addressMap = new AddressMap<>(wildcardConfiguration.getAnyWordsString(), wildcardConfiguration.getSingleWordString(), wildcardConfiguration.getDelimiter());
+
+   final PagingManager pagingManager;
 
    /**
     * Guards consistency between {@link #addressMap} and {@link #mappings} when adding or removing bindings for wildcard addresses
@@ -45,7 +55,16 @@ public class WildcardAddressManager extends SimpleAddressManager {
                                  final WildcardConfiguration wildcardConfiguration,
                                  final StorageManager storageManager,
                                  final MetricsManager metricsManager) {
+      this(bindingsFactory, wildcardConfiguration, storageManager, metricsManager, null);
+   }
+
+   public WildcardAddressManager(final BindingsFactory bindingsFactory,
+                                 final WildcardConfiguration wildcardConfiguration,
+                                 final StorageManager storageManager,
+                                 final MetricsManager metricsManager,
+                                 final PagingManager pagingManager) {
       super(bindingsFactory, wildcardConfiguration, storageManager, metricsManager);
+      this.pagingManager = pagingManager;
    }
 
    // publish, may be a new address that needs wildcard bindings added
@@ -108,10 +127,27 @@ public class WildcardAddressManager extends SimpleAddressManager {
 
          if (wildcardConfiguration.isWild(address)) {
 
-            addressMap.visitMatching(address, bindings -> {
-               // this wildcard binding needs to be added to matching addresses
-               bindings.addBinding(binding);
-            });
+         PagingStore storeWild;
+         if (pagingManager != null) {
+            storeWild = pagingManager.getPageStore(address);
+         } else {
+            storeWild = null;
+         }
+
+         addressMap.visitMatching(address, bindings -> {
+            // this wildcard binding needs to be added to matching addresses
+            bindings.addBinding(binding);
+            if (storeWild != null) {
+               bindings.forEach((a, b) -> {
+                  if (b.isLocal()) {
+                     PagingStore store = ((LocalQueueBinding)b).getQueue().getPagingStore();
+                     if (store != storeWild) {
+                        store.addHierarchy(storeWild);
+                     }
+                  }
+               });
+            }
+         });
 
          } else if (bindingsForANewAddress) {
             // existing wildcards may match this new simple address
@@ -151,6 +187,19 @@ public class WildcardAddressManager extends SimpleAddressManager {
          }
          return binding;
       }
+   }
+
+   private void removeHierarchy(Bindings bindings, SimpleString uniqueName) throws Exception {
+      if (wildcardConfiguration.isWild(uniqueName)) {
+         PagingStore wildAddress = pagingManager.getPageStore(uniqueName);
+         bindings.forEach((s, b) -> {
+            if (b.isLocal()) {
+               PagingStore store = ((LocalQueueBinding) b).getQueue().getPagingStore();
+               store.removeHierarchy(wildAddress);
+            }
+         });
+      }
+      removeBindingInternal(bindings.getName(), uniqueName);
    }
 
    @Override
