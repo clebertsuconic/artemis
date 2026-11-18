@@ -51,7 +51,7 @@ public class ResourceQuotaJMXTest extends ActiveMQTestBase {
       globalQuota.setMaxMessageBytes(1000000L);
 
       ResourceQuotaConfig tenantQuota = new ResourceQuotaConfig("tenant1");
-      tenantQuota.setPartOf("global");
+      tenantQuota.setParentName("global");
       tenantQuota.setMaxAddresses(30);
       tenantQuota.setMaxQueues(60);
 
@@ -77,7 +77,7 @@ public class ResourceQuotaJMXTest extends ActiveMQTestBase {
             .newProxyInstance(mbeanServer, globalObjectName, ResourceQuotaControl.class, false);
 
          assertEquals("global", globalControl.getName());
-         assertNull(globalControl.getPartOf());
+         assertNull(globalControl.getParentName());
          assertEquals(100, globalControl.getMaxAddresses());
          assertEquals(200, globalControl.getMaxQueues());
          assertEquals(1000000L, globalControl.getMaxMessageBytes());
@@ -96,7 +96,7 @@ public class ResourceQuotaJMXTest extends ActiveMQTestBase {
             .newProxyInstance(mbeanServer, tenantObjectName, ResourceQuotaControl.class, false);
 
          assertEquals("tenant1", tenantControl.getName());
-         assertEquals("global", tenantControl.getPartOf());
+         assertEquals("global", tenantControl.getParentName());
          assertEquals(30, tenantControl.getMaxAddresses());
          assertEquals(60, tenantControl.getMaxQueues());
          assertEquals(-1, tenantControl.getMaxMessageBytes()); // No limit configured for bytes

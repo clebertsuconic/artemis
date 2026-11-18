@@ -326,7 +326,7 @@ public class ResourceQuotaEdgeCasesTest extends ActiveMQTestBase {
       // Child with higher limit but constrained by parent
       ResourceQuotaConfig childQuota = new ResourceQuotaConfig("child");
       childQuota.setMaxAddresses(10);
-      childQuota.setPartOf("parent");
+      childQuota.setParentName("parent");
       config.addResourceQuota("child", childQuota);
 
       AddressSettings settings = new AddressSettings();
@@ -372,7 +372,7 @@ public class ResourceQuotaEdgeCasesTest extends ActiveMQTestBase {
       ResourceQuotaConfig childQuota = new ResourceQuotaConfig("child");
       childQuota.setMaxAddresses(-1); // unlimited (but parent constrains)
       childQuota.setMaxQueues(3);
-      childQuota.setPartOf("parent");
+      childQuota.setParentName("parent");
       config.addResourceQuota("child", childQuota);
 
       AddressSettings settings = new AddressSettings();

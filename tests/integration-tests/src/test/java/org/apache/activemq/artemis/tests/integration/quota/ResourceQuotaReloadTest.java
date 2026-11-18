@@ -394,7 +394,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                   <max-addresses>100</max-addresses>
                </resource-quota>
                <resource-quota name="tenant1">
-                  <part-of>global</part-of>
+                  <parent-name>global</parent-name>
                   <max-addresses>30</max-addresses>
                </resource-quota>
             </resource-quotas>
@@ -422,7 +422,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          assertNotNull(child, "Child quota should exist");
 
          // Verify parent relationship
-         assertEquals("global", child.getPartOf(), "Child should reference parent");
+         assertEquals("global", child.getParentName(), "Child should reference parent");
          assertNotNull(child.getParent(), "Child should have parent reference");
          assertEquals("global", child.getParent().getName(), "Child parent should be global");
 
@@ -447,7 +447,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                      <max-addresses>200</max-addresses>
                   </resource-quota>
                   <resource-quota name="tenant1">
-                     <part-of>global</part-of>
+                     <parent-name>global</parent-name>
                      <max-addresses>50</max-addresses>
                   </resource-quota>
                </resource-quotas>
@@ -601,11 +601,11 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                <resource-quotas>
                   <!-- Circular reference: quota1 -> quota2 -> quota1 -->
                   <resource-quota name="quota1">
-                     <part-of>quota2</part-of>
+                     <parent-name>quota2</parent-name>
                      <max-addresses>10</max-addresses>
                   </resource-quota>
                   <resource-quota name="quota2">
-                     <part-of>quota1</part-of>
+                     <parent-name>quota1</parent-name>
                      <max-addresses>20</max-addresses>
                   </resource-quota>
                </resource-quotas>
@@ -831,7 +831,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                   <max-addresses>100</max-addresses>
                </resource-quota>
                <resource-quota name="tenant1">
-                  <part-of>global</part-of>
+                  <parent-name>global</parent-name>
                   <max-addresses>30</max-addresses>
                </resource-quota>
             </resource-quotas>
@@ -857,7 +857,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          ResourceQuota tenant1 = quotaManager.getQuota("tenant1");
          assertNotNull(global);
          assertNotNull(tenant1);
-         assertEquals("global", tenant1.getPartOf());
+         assertEquals("global", tenant1.getParentName());
          assertNotNull(tenant1.getParent());
          assertEquals("global", tenant1.getParent().getName());
 
@@ -880,11 +880,11 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                      <max-addresses>100</max-addresses>
                   </resource-quota>
                   <resource-quota name="newParent">
-                     <part-of>global</part-of>
+                     <parent-name>global</parent-name>
                      <max-addresses>50</max-addresses>
                   </resource-quota>
                   <resource-quota name="tenant1">
-                     <part-of>newParent</part-of>
+                     <parent-name>newParent</parent-name>
                      <max-addresses>30</max-addresses>
                   </resource-quota>
                </resource-quotas>
@@ -903,9 +903,9 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          assertNotNull(newParent);
          assertNotNull(tenant1);
 
-         assertEquals("newParent", tenant1.getPartOf(), "tenant1 should now be part of newParent");
+         assertEquals("newParent", tenant1.getParentName(), "tenant1 should now be part of newParent");
          assertEquals("newParent", tenant1.getParent().getName());
-         assertEquals("global", newParent.getPartOf(), "newParent should be part of global");
+         assertEquals("global", newParent.getParentName(), "newParent should be part of global");
          assertEquals("global", newParent.getParent().getName());
 
          // Verify counters are correct throughout hierarchy
@@ -1025,7 +1025,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                   <max-addresses>100</max-addresses>
                </resource-quota>
                <resource-quota name="tenant1">
-                  <part-of>global</part-of>
+                  <parent-name>global</parent-name>
                   <max-addresses>30</max-addresses>
                </resource-quota>
             </resource-quotas>
@@ -1069,7 +1069,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          reloadConfiguration(embeddedActiveMQ, brokerXML, """
                <resource-quotas>
                   <resource-quota name="tenant1">
-                     <part-of>global</part-of>
+                     <parent-name>global</parent-name>
                      <max-addresses>30</max-addresses>
                   </resource-quota>
                </resource-quotas>
@@ -1088,7 +1088,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          assertNotNull(tenant1, "Child quota 'tenant1' should still exist");
          assertEquals(3, tenant1.getCurrentAddressCount(), "Child counter should be rebuilt to 3");
 
-         // Verify child has no parent (even though part-of is still set in config)
+         // Verify child has no parent (even though parent-name is still set in config)
          assertNull(tenant1.getParent(), "Child should have no parent since parent was removed");
 
          // Verify child quota still functions - can create more addresses
@@ -1213,7 +1213,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                   <max-message-bytes>500000</max-message-bytes>
                </resource-quota>
                <resource-quota name="tenant-bytes">
-                  <part-of>global-bytes</part-of>
+                  <parent-name>global-bytes</parent-name>
                   <max-message-bytes>200000</max-message-bytes>
                </resource-quota>
             </resource-quotas>
@@ -1289,7 +1289,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                      <max-message-bytes>1000000</max-message-bytes>
                   </resource-quota>
                   <resource-quota name="tenant-bytes">
-                     <part-of>global-bytes</part-of>
+                     <parent-name>global-bytes</parent-name>
                      <max-message-bytes>400000</max-message-bytes>
                   </resource-quota>
                </resource-quotas>
@@ -1338,11 +1338,11 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                   <max-addresses>100</max-addresses>
                </resource-quota>
                <resource-quota name="child1">
-                  <part-of>global</part-of>
+                  <parent-name>global</parent-name>
                   <max-addresses>30</max-addresses>
                </resource-quota>
                <resource-quota name="child2">
-                  <part-of>global</part-of>
+                  <parent-name>global</parent-name>
                   <max-addresses>30</max-addresses>
                </resource-quota>
             </resource-quotas>
@@ -1373,8 +1373,8 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          assertNotNull(global);
          assertNotNull(child1);
          assertNotNull(child2);
-         assertEquals("global", child1.getPartOf());
-         assertEquals("global", child2.getPartOf());
+         assertEquals("global", child1.getParentName());
+         assertEquals("global", child2.getParentName());
          assertEquals("global", child1.getParent().getName());
          assertEquals("global", child2.getParent().getName());
 
@@ -1400,19 +1400,19 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                      <max-addresses>100</max-addresses>
                   </resource-quota>
                   <resource-quota name="newParent1">
-                     <part-of>global</part-of>
+                     <parent-name>global</parent-name>
                      <max-addresses>50</max-addresses>
                   </resource-quota>
                   <resource-quota name="newParent2">
-                     <part-of>global</part-of>
+                     <parent-name>global</parent-name>
                      <max-addresses>50</max-addresses>
                   </resource-quota>
                   <resource-quota name="child1">
-                     <part-of>newParent1</part-of>
+                     <parent-name>newParent1</parent-name>
                      <max-addresses>30</max-addresses>
                   </resource-quota>
                   <resource-quota name="child2">
-                     <part-of>newParent2</part-of>
+                     <parent-name>newParent2</parent-name>
                      <max-addresses>30</max-addresses>
                   </resource-quota>
                </resource-quotas>
@@ -1439,8 +1439,8 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          assertNotNull(newParent2);
 
          // Verify new hierarchy
-         assertEquals("newParent1", child1.getPartOf());
-         assertEquals("newParent2", child2.getPartOf());
+         assertEquals("newParent1", child1.getParentName());
+         assertEquals("newParent2", child2.getParentName());
          assertEquals("newParent1", child1.getParent().getName());
          assertEquals("newParent2", child2.getParent().getName());
          assertEquals("global", newParent1.getParent().getName());
@@ -1536,7 +1536,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          enforcementChecker.start();
          checkerStarted.await();
 
-         // Trigger reload that adds a parent (partOf changes from null to "parent-quota").
+         // Trigger reload that adds a parent (parentName changes from null to "parent-quota").
          // This hierarchy change causes rebuildCountersForQuota() which calls
          // resetCounters() (zeroing all counters) then scans to rebuild them.
          reloadConfiguration(embeddedActiveMQ, brokerXML, """
@@ -1545,7 +1545,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                      <max-addresses>100</max-addresses>
                   </resource-quota>
                   <resource-quota name="test-quota">
-                     <part-of>parent-quota</part-of>
+                     <parent-name>parent-quota</parent-name>
                      <max-addresses>5</max-addresses>
                   </resource-quota>
                </resource-quotas>
@@ -1586,7 +1586,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
    /**
     * Byte counters preserved during hierarchy change.
     * Verifies that adjustParentChain correctly handles byte deltas
-    * when a quota's partOf changes.
+    * when a quota's parentName changes.
     */
    @Test
    public void testHierarchyChangePreservesByteCounters() throws Exception {
@@ -1597,7 +1597,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                   <max-message-bytes>500000</max-message-bytes>
                </resource-quota>
                <resource-quota name="tenant-bytes">
-                  <part-of>global-bytes</part-of>
+                  <parent-name>global-bytes</parent-name>
                   <max-message-bytes>200000</max-message-bytes>
                </resource-quota>
             </resource-quotas>
@@ -1657,7 +1657,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          assertTrue(tenantBytesBefore > 0, "Tenant should have bytes");
          assertEquals(tenantBytesBefore, globalQuota.getCurrentMessageBytes());
 
-         // Reload: tenant-bytes changes partOf from global-bytes to new-parent-bytes
+         // Reload: tenant-bytes changes parentName from global-bytes to new-parent-bytes
          reloadConfiguration(embeddedActiveMQ, brokerXML, """
                <resource-quotas>
                   <resource-quota name="global-bytes">
@@ -1667,7 +1667,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                      <max-message-bytes>300000</max-message-bytes>
                   </resource-quota>
                   <resource-quota name="tenant-bytes">
-                     <part-of>new-parent-bytes</part-of>
+                     <parent-name>new-parent-bytes</parent-name>
                      <max-message-bytes>200000</max-message-bytes>
                   </resource-quota>
                </resource-quotas>
@@ -1699,8 +1699,8 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
    }
 
    /**
-    * Quota loses its parent (partOf removed from config).
-    * Verifies that removing the partOf field from a quota's config
+    * Quota loses its parent (parentName removed from config).
+    * Verifies that removing the parentName field from a quota's config
     * correctly detaches it from the parent while preserving its own counters.
     */
    @Test
@@ -1712,7 +1712,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                   <max-addresses>100</max-addresses>
                </resource-quota>
                <resource-quota name="tenant1">
-                  <part-of>global</part-of>
+                  <parent-name>global</parent-name>
                   <max-addresses>30</max-addresses>
                </resource-quota>
             </resource-quotas>
@@ -1738,7 +1738,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          ResourceQuota tenant1 = quotaManager.getQuota("tenant1");
          assertNotNull(global);
          assertNotNull(tenant1);
-         assertEquals("global", tenant1.getPartOf());
+         assertEquals("global", tenant1.getParentName());
          assertNotNull(tenant1.getParent());
 
          // Create addresses
@@ -1750,7 +1750,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          assertEquals(3, tenant1.getCurrentAddressCount());
          assertEquals(3, global.getCurrentAddressCount());
 
-         // Reload: tenant1 loses partOf (no <part-of> element), global still exists
+         // Reload: tenant1 loses parentName (no <parent-name> element), global still exists
          reloadConfiguration(embeddedActiveMQ, brokerXML, """
                <resource-quotas>
                   <resource-quota name="global">
@@ -1772,8 +1772,8 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          assertNotNull(tenant1);
          assertNotNull(global);
          assertEquals(3, tenant1.getCurrentAddressCount(), "Tenant counters should be preserved");
-         assertNull(tenant1.getParent(), "Tenant should have no parent after partOf removed");
-         assertNull(tenant1.getPartOf(), "Tenant partOf config should be null");
+         assertNull(tenant1.getParent(), "Tenant should have no parent after parentName removed");
+         assertNull(tenant1.getParentName(), "Tenant parentName config should be null");
 
          // Global should have been decremented by delta
          assertEquals(0, global.getCurrentAddressCount(), "Global should be decremented to 0");
@@ -1903,14 +1903,14 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
 
          assertEquals(3, parentQuota.getCurrentAddressCount(), "Parent should track its own 3 addresses");
 
-         // Reload: add child-quota with partOf=parent-quota for child.#
+         // Reload: add child-quota with parentName=parent-quota for child.#
          reloadConfiguration(embeddedActiveMQ, brokerXML, """
                <resource-quotas>
                   <resource-quota name="parent-quota">
                      <max-addresses>100</max-addresses>
                   </resource-quota>
                   <resource-quota name="child-quota">
-                     <part-of>parent-quota</part-of>
+                     <parent-name>parent-quota</parent-name>
                      <max-addresses>50</max-addresses>
                   </resource-quota>
                </resource-quotas>
@@ -1944,7 +1944,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
 
    /**
     * Nested hierarchy changes in same reload.
-    * Both parent and child change partOf simultaneously. Verifies that
+    * Both parent and child change parentName simultaneously. Verifies that
     * delta adjustments produce correct results regardless of HashMap iteration order.
     */
    @Test
@@ -1956,11 +1956,11 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                   <max-addresses>100</max-addresses>
                </resource-quota>
                <resource-quota name="parent">
-                  <part-of>root</part-of>
+                  <parent-name>root</parent-name>
                   <max-addresses>50</max-addresses>
                </resource-quota>
                <resource-quota name="child">
-                  <part-of>parent</part-of>
+                  <parent-name>parent</parent-name>
                   <max-addresses>10</max-addresses>
                </resource-quota>
             </resource-quotas>
@@ -1988,8 +1988,8 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          assertNotNull(root);
          assertNotNull(parent);
          assertNotNull(child);
-         assertEquals("parent", child.getPartOf());
-         assertEquals("root", parent.getPartOf());
+         assertEquals("parent", child.getParentName());
+         assertEquals("root", parent.getParentName());
 
          // Create addresses under child
          for (int i = 0; i < 3; i++) {
@@ -2001,7 +2001,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          assertEquals(3, parent.getCurrentAddressCount(), "Parent should aggregate child's 3");
          assertEquals(3, root.getCurrentAddressCount(), "Root should aggregate 3 through parent");
 
-         // Reload: child changes partOf to root, parent changes partOf to newRoot
+         // Reload: child changes parentName to root, parent changes parentName to newRoot
          reloadConfiguration(embeddedActiveMQ, brokerXML, """
                <resource-quotas>
                   <resource-quota name="root">
@@ -2011,11 +2011,11 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                      <max-addresses>100</max-addresses>
                   </resource-quota>
                   <resource-quota name="parent">
-                     <part-of>newRoot</part-of>
+                     <parent-name>newRoot</parent-name>
                      <max-addresses>50</max-addresses>
                   </resource-quota>
                   <resource-quota name="child">
-                     <part-of>root</part-of>
+                     <parent-name>root</parent-name>
                      <max-addresses>10</max-addresses>
                   </resource-quota>
                </resource-quotas>
@@ -2032,8 +2032,8 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          ResourceQuota newRoot = quotaManager.getQuota("newRoot");
          assertNotNull(newRoot);
 
-         assertEquals("root", child.getPartOf(), "child should now be partOf root");
-         assertEquals("newRoot", parent.getPartOf(), "parent should now be partOf newRoot");
+         assertEquals("root", child.getParentName(), "child should now be parentName root");
+         assertEquals("newRoot", parent.getParentName(), "parent should now be parentName newRoot");
 
          // Verify counters are correct
          assertEquals(3, child.getCurrentAddressCount(), "child counters should be preserved");
@@ -2047,8 +2047,8 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
    }
 
    /**
-    * Wildcard template partOf change during reload.
-    * Verifies that when a wildcard template quota changes its partOf,
+    * Wildcard template parentName change during reload.
+    * Verifies that when a wildcard template quota changes its parentName,
     * both the template and its instantiated children are reparented
     * with counters correctly moved between parent chains.
     */
@@ -2061,7 +2061,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                   <max-addresses>100</max-addresses>
                </resource-quota>
                <resource-quota name="region.*">
-                  <part-of>parent-quota</part-of>
+                  <parent-name>parent-quota</parent-name>
                   <max-addresses>15</max-addresses>
                </resource-quota>
             </resource-quotas>
@@ -2088,7 +2088,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          ResourceQuota template = quotaManager.getQuota("region.*");
          assertNotNull(parentQuota);
          assertNotNull(template);
-         assertEquals("parent-quota", template.getPartOf());
+         assertEquals("parent-quota", template.getParentName());
 
          // Create addresses to instantiate wildcard instances
          AddressInfo addr1 = new AddressInfo(SimpleString.of("region.us.orders"), RoutingType.ANYCAST);
@@ -2108,7 +2108,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          int parentAddrBefore = parentQuota.getCurrentAddressCount();
          assertTrue(parentAddrBefore > 0, "Parent should have addresses from wildcard instances");
 
-         // Reload: region.* template changes partOf from parent-quota to new-parent
+         // Reload: region.* template changes parentName from parent-quota to new-parent
          reloadConfiguration(embeddedActiveMQ, brokerXML, """
                <resource-quotas>
                   <resource-quota name="parent-quota">
@@ -2118,7 +2118,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                      <max-addresses>100</max-addresses>
                   </resource-quota>
                   <resource-quota name="region.*">
-                     <part-of>new-parent</part-of>
+                     <parent-name>new-parent</parent-name>
                      <max-addresses>15</max-addresses>
                   </resource-quota>
                </resource-quotas>
@@ -2128,17 +2128,17 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                   </address-setting>
                </address-settings>""", latch);
 
-         // Verify template's partOf updated correctly
+         // Verify template's parentName updated correctly
          template = quotaManager.getQuota("region.*");
          assertNotNull(template, "Template should still exist");
-         assertEquals("new-parent", template.getPartOf());
+         assertEquals("new-parent", template.getParentName());
 
-         // Verify instances were reparented: their partOf and parent should
+         // Verify instances were reparented: their parentName and parent should
          // now point to new-parent, not parent-quota
          usQuota = quotaService.lookupQuota(SimpleString.of("region.us.orders"));
          euQuota = quotaService.lookupQuota(SimpleString.of("region.eu.orders"));
-         assertEquals("new-parent", usQuota.getPartOf(), "US instance should have new partOf");
-         assertEquals("new-parent", euQuota.getPartOf(), "EU instance should have new partOf");
+         assertEquals("new-parent", usQuota.getParentName(), "US instance should have new parentName");
+         assertEquals("new-parent", euQuota.getParentName(), "EU instance should have new parentName");
          assertEquals(1, usQuota.getCurrentAddressCount(), "US instance counters should be preserved");
          assertEquals(1, euQuota.getCurrentAddressCount(), "EU instance counters should be preserved");
 
@@ -2160,7 +2160,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
 
    /**
     * Queue enforcement preserved during hierarchy change.
-    * Concurrent thread polls canAddQueue() while a reload changes the quota's partOf.
+    * Concurrent thread polls canAddQueue() while a reload changes the quota's parentName.
     */
    @Test
    public void testReloadPreservesQueueEnforcementDuringHierarchyChange() throws Exception {
@@ -2224,14 +2224,14 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          enforcementChecker.start();
          checkerStarted.await();
 
-         // Trigger reload adding partOf
+         // Trigger reload adding parentName
          reloadConfiguration(embeddedActiveMQ, brokerXML, """
                <resource-quotas>
                   <resource-quota name="parent-quota">
                      <max-queues>100</max-queues>
                   </resource-quota>
                   <resource-quota name="queue-quota">
-                     <part-of>parent-quota</part-of>
+                     <parent-name>parent-quota</parent-name>
                      <max-queues>5</max-queues>
                   </resource-quota>
                </resource-quotas>
@@ -2261,7 +2261,7 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
 
    /**
     * Byte enforcement preserved during hierarchy change.
-    * Concurrent thread polls canAddBytes() while a reload changes the quota's partOf.
+    * Concurrent thread polls canAddBytes() while a reload changes the quota's parentName.
     */
    @Test
    public void testReloadPreservesByteEnforcementDuringHierarchyChange() throws Exception {
@@ -2321,14 +2321,14 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
          enforcementChecker.start();
          checkerStarted.await();
 
-         // Trigger reload adding partOf
+         // Trigger reload adding parentName
          reloadConfiguration(embeddedActiveMQ, brokerXML, """
                <resource-quotas>
                   <resource-quota name="parent-quota">
                      <max-message-bytes>500000</max-message-bytes>
                   </resource-quota>
                   <resource-quota name="bytes-quota">
-                     <part-of>parent-quota</part-of>
+                     <parent-name>parent-quota</parent-name>
                      <max-message-bytes>50000</max-message-bytes>
                   </resource-quota>
                </resource-quotas>
@@ -2476,8 +2476,8 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
 
    /**
     * Address-settings mapping change with parent hierarchy.
-    * Verifies that when addresses are remapped from quota1 (partOf=parent1) to
-    * quota2 (partOf=parent2), the parent chain counters are also rebalanced.
+    * Verifies that when addresses are remapped from quota1 (parentName=parent1) to
+    * quota2 (parentName=parent2), the parent chain counters are also rebalanced.
     */
    @Test
    public void testAddressSettingsQuotaMappingChangeWithHierarchy() throws Exception {
@@ -2491,11 +2491,11 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                   <max-addresses>100</max-addresses>
                </resource-quota>
                <resource-quota name="quota1">
-                  <part-of>parent1</part-of>
+                  <parent-name>parent1</parent-name>
                   <max-addresses>10</max-addresses>
                </resource-quota>
                <resource-quota name="quota2">
-                  <part-of>parent2</part-of>
+                  <parent-name>parent2</parent-name>
                   <max-addresses>20</max-addresses>
                </resource-quota>
             </resource-quotas>
@@ -2554,11 +2554,11 @@ public class ResourceQuotaReloadTest extends ActiveMQTestBase {
                      <max-addresses>100</max-addresses>
                   </resource-quota>
                   <resource-quota name="quota1">
-                     <part-of>parent1</part-of>
+                     <parent-name>parent1</parent-name>
                      <max-addresses>10</max-addresses>
                   </resource-quota>
                   <resource-quota name="quota2">
-                     <part-of>parent2</part-of>
+                     <parent-name>parent2</parent-name>
                      <max-addresses>20</max-addresses>
                   </resource-quota>
                </resource-quotas>

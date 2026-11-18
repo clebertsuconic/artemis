@@ -1247,9 +1247,9 @@ public final class FileConfigurationParser extends XMLConfigurationUtil {
          quotaConfig.setMaxQueues(maxQueues);
       }
 
-      String partOf = getString((Element) node, "part-of", null, NO_CHECK);
-      if (partOf != null && !partOf.isEmpty()) {
-         quotaConfig.setPartOf(partOf);
+      String parentName = getString((Element) node, "parent-name", null, NO_CHECK);
+      if (parentName != null && !parentName.isEmpty()) {
+         quotaConfig.setParentName(parentName);
       }
 
       return quotaConfig;

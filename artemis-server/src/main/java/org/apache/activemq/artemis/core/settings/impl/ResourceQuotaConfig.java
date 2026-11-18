@@ -33,7 +33,7 @@ import java.util.Objects;
  *   <li>max-queues: Maximum number of queues in this quota</li>
  * </ul>
  * <p>
- * Quotas can be organized in a parent-child hierarchy via the 'partOf' field.
+ * Quotas can be organized in a parent-child hierarchy via the 'parentName' field.
  * Child quota usage counts toward parent quota limits.
  * <p>
  * Quotas support wildcard templates (e.g., "EU.*") that create runtime instances
@@ -50,14 +50,14 @@ public class ResourceQuotaConfig implements Serializable {
    public static final int DEFAULT_MAX_QUEUES = -1;
 
    private String name;
-   private String partOf;
+   private String parentName;
    private Long maxMessageBytes;
    private Integer maxAddresses;
    private Integer maxQueues;
 
    public ResourceQuotaConfig() {
       this.name = null;
-      this.partOf = null;
+      this.parentName = null;
       this.maxMessageBytes = null;
       this.maxAddresses = null;
       this.maxQueues = null;
@@ -68,7 +68,7 @@ public class ResourceQuotaConfig implements Serializable {
          throw new IllegalArgumentException("Quota name cannot be null or empty");
       }
       this.name = name;
-      this.partOf = null;
+      this.parentName = null;
       this.maxMessageBytes = null;
       this.maxAddresses = null;
       this.maxQueues = null;
@@ -83,12 +83,12 @@ public class ResourceQuotaConfig implements Serializable {
       return this;
    }
 
-   public String getPartOf() {
-      return partOf;
+   public String getParentName() {
+      return parentName;
    }
 
-   public ResourceQuotaConfig setPartOf(String partOf) {
-      this.partOf = partOf;
+   public ResourceQuotaConfig setParentName(String parentName) {
+      this.parentName = parentName;
       return this;
    }
 
@@ -141,7 +141,7 @@ public class ResourceQuotaConfig implements Serializable {
       runtime.setMaxMessageBytes(this.maxMessageBytes);
       runtime.setMaxAddresses(this.maxAddresses);
       runtime.setMaxQueues(this.maxQueues);
-      runtime.setPartOf(this.partOf);
+      runtime.setParentName(this.parentName);
       return runtime;
    }
 
@@ -150,14 +150,14 @@ public class ResourceQuotaConfig implements Serializable {
     * For example, template "EU.*" with address "eu.fr.orders" creates config "EU.fr".
     *
     * @param newName the name for the new config instance
-    * @return copy with new name but same limits and partOf
+    * @return copy with new name but same limits and parentName
     */
    public ResourceQuotaConfig copy(String newName) {
       ResourceQuotaConfig copy = new ResourceQuotaConfig(newName);
       copy.maxMessageBytes = this.maxMessageBytes;
       copy.maxAddresses = this.maxAddresses;
       copy.maxQueues = this.maxQueues;
-      copy.partOf = this.partOf;
+      copy.parentName = this.parentName;
       return copy;
    }
 
@@ -171,7 +171,7 @@ public class ResourceQuotaConfig implements Serializable {
       }
       ResourceQuotaConfig that = (ResourceQuotaConfig) o;
       return Objects.equals(name, that.name) &&
-             Objects.equals(partOf, that.partOf) &&
+             Objects.equals(parentName, that.parentName) &&
              Objects.equals(maxMessageBytes, that.maxMessageBytes) &&
              Objects.equals(maxAddresses, that.maxAddresses) &&
              Objects.equals(maxQueues, that.maxQueues);
@@ -179,14 +179,14 @@ public class ResourceQuotaConfig implements Serializable {
 
    @Override
    public int hashCode() {
-      return Objects.hash(name, partOf, maxMessageBytes, maxAddresses, maxQueues);
+      return Objects.hash(name, parentName, maxMessageBytes, maxAddresses, maxQueues);
    }
 
    @Override
    public String toString() {
       return "ResourceQuotaConfig{" +
              "name='" + name + '\'' +
-             ", partOf='" + partOf + '\'' +
+             ", parentName='" + parentName + '\'' +
              ", maxMessageBytes=" + maxMessageBytes +
              ", maxAddresses=" + maxAddresses +
              ", maxQueues=" + maxQueues +

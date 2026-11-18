@@ -36,7 +36,7 @@ public class ResourceQuotaTest {
       assertEquals(ResourceQuota.DEFAULT_MAX_MESSAGE_BYTES, quota.getMaxMessageBytes());
       assertEquals(ResourceQuota.DEFAULT_MAX_ADDRESSES, quota.getMaxAddresses());
       assertEquals(ResourceQuota.DEFAULT_MAX_QUEUES, quota.getMaxQueues());
-      assertNull(quota.getPartOf());
+      assertNull(quota.getParentName());
    }
 
    @Test
@@ -45,12 +45,12 @@ public class ResourceQuotaTest {
       quota.setMaxMessageBytes(1024L * 1024L);
       quota.setMaxAddresses(100);
       quota.setMaxQueues(50);
-      quota.setPartOf("parent-quota");
+      quota.setParentName("parent-quota");
 
       assertEquals(1024L * 1024L, quota.getMaxMessageBytes());
       assertEquals(100, quota.getMaxAddresses());
       assertEquals(50, quota.getMaxQueues());
-      assertEquals("parent-quota", quota.getPartOf());
+      assertEquals("parent-quota", quota.getParentName());
    }
 
    @Test

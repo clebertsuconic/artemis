@@ -265,7 +265,7 @@ public class ResourceQuotaIntegrationTest extends ActiveMQTestBase {
       // Create child quota with higher limit but part of parent
       ResourceQuotaConfig childQuota = new ResourceQuotaConfig("child");
       childQuota.setMaxAddresses(10);
-      childQuota.setPartOf("parent");
+      childQuota.setParentName("parent");
       config.addResourceQuota("child", childQuota);
 
       // Configure address settings to use child quota

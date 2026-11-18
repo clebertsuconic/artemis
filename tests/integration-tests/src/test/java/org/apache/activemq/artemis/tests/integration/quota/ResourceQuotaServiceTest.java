@@ -235,12 +235,12 @@ public class ResourceQuotaServiceTest extends ActiveMQTestBase {
 
       ResourceQuotaConfig euConfig = new ResourceQuotaConfig("eu-quota");
       euConfig.setMaxAddresses(50);
-      euConfig.setPartOf("global");
+      euConfig.setParentName("global");
       config.addResourceQuota("eu-quota", euConfig);
 
       ResourceQuotaConfig usConfig = new ResourceQuotaConfig("us-quota");
       usConfig.setMaxAddresses(50);
-      usConfig.setPartOf("global");
+      usConfig.setParentName("global");
       config.addResourceQuota("us-quota", usConfig);
 
       AddressSettings euSettings = new AddressSettings();
@@ -280,7 +280,7 @@ public class ResourceQuotaServiceTest extends ActiveMQTestBase {
          // must not be lost.
          ResourceQuotaConfig apConfig = new ResourceQuotaConfig("ap-quota");
          apConfig.setMaxAddresses(50);
-         apConfig.setPartOf("global");
+         apConfig.setParentName("global");
          config.addResourceQuota("ap-quota", apConfig);
 
          AddressSettings apSettings = new AddressSettings();
@@ -323,7 +323,7 @@ public class ResourceQuotaServiceTest extends ActiveMQTestBase {
       // Wildcard template child — instantiates "region.eu", "region.us" etc.
       ResourceQuotaConfig regionConfig = new ResourceQuotaConfig("region.*");
       regionConfig.setMaxAddresses(50);
-      regionConfig.setPartOf("global");
+      regionConfig.setParentName("global");
       config.addResourceQuota("region.*", regionConfig);
 
       // Address settings route region.# addresses to the wildcard template
@@ -356,7 +356,7 @@ public class ResourceQuotaServiceTest extends ActiveMQTestBase {
          // contributions to global are lost.
          ResourceQuotaConfig newChildConfig = new ResourceQuotaConfig("new-child");
          newChildConfig.setMaxAddresses(20);
-         newChildConfig.setPartOf("global");
+         newChildConfig.setParentName("global");
          config.addResourceQuota("new-child", newChildConfig);
 
          quotaService.reloadQuotas();

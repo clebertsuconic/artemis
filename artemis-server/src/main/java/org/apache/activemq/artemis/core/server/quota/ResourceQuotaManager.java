@@ -159,13 +159,13 @@ public class ResourceQuotaManager {
       ResourceQuota instance = template.copy(instanceName);
 
       // Establish parent relationship if template has one
-      if (instance.getPartOf() != null) {
-         String parentName = instance.getPartOf();
+      if (instance.getParentName() != null) {
+         String parentName = instance.getParentName();
 
-         // Wildcard in partOf is not supported - it doesn't make semantic sense
+         // Wildcard in parentName is not supported - it doesn't make semantic sense
          // because each instance would get a separate parent instance
          if (parentName.contains("*")) {
-            logger.warn("Quota template {} has wildcard in part-of '{}' - wildcards are not supported in part-of. Parent relationship will not be established.",
+            logger.warn("Quota template {} has wildcard in parent-name '{}' - wildcards are not supported in parent-name. Parent relationship will not be established.",
                         template.getName(), parentName);
             return instance;
          }
@@ -214,7 +214,7 @@ public class ResourceQuotaManager {
     * @return true if parent relationship was successfully established, false if circular reference detected
     */
    private boolean establishParentChain(ResourceQuota quota, Map<String, ResourceQuota> allQuotas, Set<String> visited) {
-      if (quota == null || quota.getPartOf() == null) {
+      if (quota == null || quota.getParentName() == null) {
          return true;  // No parent needed, success
       }
 
@@ -231,11 +231,11 @@ public class ResourceQuotaManager {
 
       visited.add(quota.getName());
 
-      String parentName = quota.getPartOf();
+      String parentName = quota.getParentName();
 
-      // Wildcard in partOf is not supported
+      // Wildcard in parentName is not supported
       if (parentName.contains("*")) {
-         logger.warn("Quota {} has wildcard in part-of '{}' - wildcards are not supported in part-of. Parent relationship will not be established.",
+         logger.warn("Quota {} has wildcard in parent-name '{}' - wildcards are not supported in parent-name. Parent relationship will not be established.",
                      quota.getName(), parentName);
          visited.remove(quota.getName());
          return false;  // Invalid configuration, failure

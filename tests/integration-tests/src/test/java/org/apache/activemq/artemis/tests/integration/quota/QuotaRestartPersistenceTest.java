@@ -362,7 +362,7 @@ public class QuotaRestartPersistenceTest extends ActiveMQTestBase {
       // Create child quota with higher limit but part of parent
       ResourceQuotaConfig childQuota = new ResourceQuotaConfig("child");
       childQuota.setMaxAddresses(10);
-      childQuota.setPartOf("parent");
+      childQuota.setParentName("parent");
       config.addResourceQuota("child", childQuota);
 
       AddressSettings settings = new AddressSettings();
@@ -449,7 +449,7 @@ public class QuotaRestartPersistenceTest extends ActiveMQTestBase {
 
       ResourceQuotaConfig regionConfig = new ResourceQuotaConfig("region.*");
       regionConfig.setMaxMessageBytes(50 * 1600L);
-      regionConfig.setPartOf("global");
+      regionConfig.setParentName("global");
       config.addResourceQuota("region.*", regionConfig);
 
       AddressSettings settings = new AddressSettings();

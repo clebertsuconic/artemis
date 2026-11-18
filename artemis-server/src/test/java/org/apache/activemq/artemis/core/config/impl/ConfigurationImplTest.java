@@ -2057,7 +2057,7 @@ public class ConfigurationImplTest extends AbstractConfigurationTestBase {
       properties.put("resourceQuotas.test-quota.maxAddresses", "10");
       properties.put("resourceQuotas.test-quota.maxQueues", "20");
       properties.put("resourceQuotas.test-quota.maxMessageBytes", "1000000");
-      properties.put("resourceQuotas.test-quota.partOf", "parent-quota");
+      properties.put("resourceQuotas.test-quota.parentName", "parent-quota");
 
       properties.put("addressSettings.\"test.#\".resourceQuota", "test-quota");
 
@@ -2070,7 +2070,7 @@ public class ConfigurationImplTest extends AbstractConfigurationTestBase {
       assertEquals(10, quotaConfig.getMaxAddresses());
       assertEquals(20, quotaConfig.getMaxQueues());
       assertEquals(1000000L, quotaConfig.getMaxMessageBytes());
-      assertEquals("parent-quota", quotaConfig.getPartOf());
+      assertEquals("parent-quota", quotaConfig.getParentName());
 
       assertEquals(1, configuration.getAddressSettings().size());
       assertEquals("test-quota", configuration.getAddressSettings().get("test.#").getResourceQuota());
@@ -2089,7 +2089,7 @@ public class ConfigurationImplTest extends AbstractConfigurationTestBase {
       ResourceQuotaConfig childQuota = new ResourceQuotaConfig("child-quota");
       childQuota.setMaxAddresses(10);
       childQuota.setMaxQueues(20);
-      childQuota.setPartOf("parent-quota");
+      childQuota.setParentName("parent-quota");
       configuration.addResourceQuota("child-quota", childQuota);
 
       File exported = new File(getTestDirfile(), "broker_config_as_properties_export.txt");
@@ -2114,7 +2114,7 @@ public class ConfigurationImplTest extends AbstractConfigurationTestBase {
       assertEquals("child-quota", importedChild.getName());
       assertEquals(10, importedChild.getMaxAddresses());
       assertEquals(20, importedChild.getMaxQueues());
-      assertEquals("parent-quota", importedChild.getPartOf());
+      assertEquals("parent-quota", importedChild.getParentName());
    }
 
    @Test

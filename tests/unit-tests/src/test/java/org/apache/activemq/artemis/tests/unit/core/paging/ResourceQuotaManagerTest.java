@@ -85,7 +85,7 @@ public class ResourceQuotaManagerTest {
    public void testEstablishSimpleParentRelationship() {
       ResourceQuota parent = new ResourceQuota("parent");
       ResourceQuota child = new ResourceQuota("child");
-      child.setPartOf("parent");
+      child.setParentName("parent");
 
       manager.addQuota("parent", parent);
       manager.addQuota("child", child);
@@ -101,10 +101,10 @@ public class ResourceQuotaManagerTest {
       ResourceQuota global = new ResourceQuota("global");
 
       ResourceQuota region = new ResourceQuota("EU");
-      region.setPartOf("global");
+      region.setParentName("global");
 
       ResourceQuota country = new ResourceQuota("EU.fr");
-      country.setPartOf("EU");
+      country.setParentName("EU");
 
       manager.addQuota("global", global);
       manager.addQuota("EU", region);
@@ -124,10 +124,10 @@ public class ResourceQuotaManagerTest {
    @Test
    public void testCircularReferenceDetection() {
       ResourceQuota quota1 = new ResourceQuota("quota1");
-      quota1.setPartOf("quota2");
+      quota1.setParentName("quota2");
 
       ResourceQuota quota2 = new ResourceQuota("quota2");
-      quota2.setPartOf("quota1");
+      quota2.setParentName("quota1");
 
       manager.addQuota("quota1", quota1);
       manager.addQuota("quota2", quota2);
@@ -143,7 +143,7 @@ public class ResourceQuotaManagerTest {
    @Test
    public void testMissingParent() {
       ResourceQuota child = new ResourceQuota("child");
-      child.setPartOf("non-existent-parent");
+      child.setParentName("non-existent-parent");
 
       manager.addQuota("child", child);
 
@@ -170,11 +170,11 @@ public class ResourceQuotaManagerTest {
 
       ResourceQuota region = new ResourceQuota("EU");
       region.setMaxMessageBytes(50000L);
-      region.setPartOf("global");
+      region.setParentName("global");
 
       ResourceQuota country = new ResourceQuota("EU.fr");
       country.setMaxMessageBytes(10000L);
-      country.setPartOf("EU");
+      country.setParentName("EU");
 
       manager.addQuota("global", global);
       manager.addQuota("EU", region);
@@ -199,7 +199,7 @@ public class ResourceQuotaManagerTest {
       ResourceQuota child = new ResourceQuota("child");
       child.setMaxAddresses(50);
       child.setMaxQueues(50);
-      child.setPartOf("parent");
+      child.setParentName("parent");
 
       manager.addQuota("parent", parent);
       manager.addQuota("child", child);
@@ -236,19 +236,19 @@ public class ResourceQuotaManagerTest {
 
       ResourceQuota us = new ResourceQuota("US");
       us.setMaxMessageBytes(400000L);
-      us.setPartOf("global");
+      us.setParentName("global");
 
       ResourceQuota eu = new ResourceQuota("EU");
       eu.setMaxMessageBytes(400000L);
-      eu.setPartOf("global");
+      eu.setParentName("global");
 
       ResourceQuota usCa = new ResourceQuota("US.ca");
       usCa.setMaxMessageBytes(100000L);
-      usCa.setPartOf("US");
+      usCa.setParentName("US");
 
       ResourceQuota euFr = new ResourceQuota("EU.fr");
       euFr.setMaxMessageBytes(100000L);
-      euFr.setPartOf("EU");
+      euFr.setParentName("EU");
 
       manager.addQuota("global", global);
       manager.addQuota("US", us);
@@ -283,7 +283,7 @@ public class ResourceQuotaManagerTest {
 
       ResourceQuota child = new ResourceQuota("child");
       child.setMaxMessageBytes(500000L);
-      child.setPartOf("parent");
+      child.setParentName("parent");
 
       // Add quotas to manager
       manager.addQuota("parent", parent);
@@ -327,7 +327,7 @@ public class ResourceQuotaManagerTest {
 
       ResourceQuota template = new ResourceQuota("region.*");
       template.setMaxAddresses(50);
-      template.setPartOf("global");
+      template.setParentName("global");
 
       manager.addQuota("global", global);
       manager.addQuota("region.*", template);

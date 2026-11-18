@@ -57,10 +57,10 @@ public class ResourceQuotaControlImpl extends AbstractControl implements Resourc
    }
 
    @Override
-   public String getPartOf() {
+   public String getParentName() {
       clearIO();
       try {
-         return resourceQuota.getPartOf();
+         return resourceQuota.getParentName();
       } finally {
          blockOnIO();
       }

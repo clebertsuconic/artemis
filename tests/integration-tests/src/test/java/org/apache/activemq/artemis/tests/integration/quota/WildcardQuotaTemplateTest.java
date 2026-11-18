@@ -160,7 +160,7 @@ public class WildcardQuotaTemplateTest extends ActiveMQTestBase {
       // Create wildcard template that's part of global, each region limited to 3
       ResourceQuotaConfig regionTemplate = new ResourceQuotaConfig("region.*");
       regionTemplate.setMaxAddresses(3);
-      regionTemplate.setPartOf("global");
+      regionTemplate.setParentName("global");
       config.addResourceQuota("region.*", regionTemplate);
 
       AddressSettings settings = new AddressSettings();

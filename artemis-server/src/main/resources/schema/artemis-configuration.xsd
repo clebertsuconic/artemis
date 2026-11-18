@@ -5151,7 +5151,7 @@
             </xsd:annotation>
          </xsd:element>
 
-         <xsd:element name="part-of" type="xsd:string" maxOccurs="1" minOccurs="0">
+         <xsd:element name="parent-name" type="xsd:string" maxOccurs="1" minOccurs="0">
             <xsd:annotation>
                <xsd:documentation>
                   The name of the parent quota. This quota's usage will count toward the parent's limits.

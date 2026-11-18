@@ -35,7 +35,7 @@ public interface ResourceQuotaControl {
     * {@return the name of the parent quota this quota is part of, or null if this is a root quota}
     */
    @Attribute(desc = "the name of the parent quota this quota is part of")
-   String getPartOf();
+   String getParentName();
 
    /**
     * {@return the maximum number of addresses allowed by this quota, or -1 if unlimited}
