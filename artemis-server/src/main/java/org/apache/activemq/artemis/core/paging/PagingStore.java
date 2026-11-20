@@ -37,6 +37,7 @@ import org.apache.activemq.artemis.core.server.impl.QueueImpl;
 import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.settings.impl.PageFullMessagePolicy;
+import org.apache.activemq.artemis.core.settings.impl.ResourceQuota;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
 import org.apache.activemq.artemis.utils.runnables.AtomicRunnable;
@@ -124,15 +125,9 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
     *
     * @param quota the resource quota to enforce, or null for no quota
     */
-   void setResourceQuota(org.apache.activemq.artemis.core.settings.impl.ResourceQuota quota);
+   void setResourceQuota(ResourceQuota quota);
 
-   org.apache.activemq.artemis.core.settings.impl.ResourceQuota getResourceQuota();
-
-   void rebuildQuotaCounters() throws Exception;
-
-   void setRebuiltQuotaBytes(long bytes);
-
-   long applyPreliminaryQuotaEstimate();
+   ResourceQuota getResourceQuota();
 
    /**
     * This method will look if the current state of paging is not paging, without using a lock. For cases where you need
@@ -228,6 +223,9 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
    void stopPaging() throws Exception;
 
    default void purgeFolder() {
+   }
+
+   default void addStorageSize(long size) {
    }
 
    long addMessage(int bytes, boolean affectGlobal);

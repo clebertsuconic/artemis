@@ -461,7 +461,10 @@ public class PageCursorProviderImpl implements PageCursorProvider {
                }
             }
 
-            depagedPage.delete(pgdMessagesList);
+            long pageFileSize = depagedPage.getSize();
+            if (depagedPage.delete(pgdMessagesList)) {
+               pagingStore.addStorageSize(-pageFileSize);
+            }
             onDeletePage(depagedPage);
          }
       } catch (Exception ex) {

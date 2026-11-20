@@ -784,10 +784,6 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          if (owner != null) {
             owner.addMessage(messageReference.getMessageMemoryEstimate());
             messageReference.getMessage().routed();
-            final ResourceQuota quota = owner.getResourceQuota();
-            if (quota != null) {
-               quota.addSize(getMessageSizeForQuota(messageReference));
-            }
          }
       }
       if (pagingStore != null) {
@@ -798,10 +794,6 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
          }
 
          pagingStore.refUp(messageReference.getMessage(), count);
-         final ResourceQuota quota = pagingStore.getResourceQuota();
-         if (quota != null) {
-            quota.addSize(MessageReferenceImpl.getMemoryEstimate());
-         }
       }
    }
 
@@ -811,10 +803,7 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
       PagingStore owner = (PagingStore) messageReference.getMessage().getOwner();
       if (count == 0 && owner != null) {
          owner.addMessage(-messageReference.getMessageMemoryEstimate());
-         final ResourceQuota quota = owner.getResourceQuota();
-         if (quota != null) {
-            quota.addSize(-getMessageSizeForQuota(messageReference));
-         }
+         owner.addStorageSize(-getMessageSizeForQuota(messageReference));
       }
       if (pagingStore != null) {
          if (isMirrorController() && owner != null && pagingStore != owner) {
@@ -823,10 +812,6 @@ public class QueueImpl extends CriticalComponentImpl implements Queue {
             pagingStore.addMessage(-messageReference.getMessage().getMemoryEstimate(), false);
          }
          pagingStore.refDown(messageReference.getMessage(), count);
-         final ResourceQuota quota = pagingStore.getResourceQuota();
-         if (quota != null) {
-            quota.addSize(-MessageReferenceImpl.getMemoryEstimate());
-         }
       }
    }
 

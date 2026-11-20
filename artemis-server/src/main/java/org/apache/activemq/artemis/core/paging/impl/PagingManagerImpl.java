@@ -436,27 +436,10 @@ public class PagingManagerImpl extends AbstracPagingManager {
          transactionsSet.forEach((a, b) -> logger.debug("{} = {}", a, b));
       }
 
-      // Quick synchronous estimate: set conservative byte counts from page metadata.
-      // This gives quotas a non-zero value immediately; the async rebuild corrects it.
-      currentStoreMap.forEach((address, pgStore) -> {
-         pgStore.applyPreliminaryQuotaEstimate();
-      });
-
       currentStoreMap.forEach((address, pgStore) -> {
          PageCounterRebuildManager rebuildManager = new PageCounterRebuildManager(this, pgStore, transactionsSet, storedLargeMessages, minLargeMessageID);
          logger.debug("Setting destination {} to rebuild counters", address);
          managerExecutor.execute(rebuildManager);
-      });
-
-      // Rebuild quota counters for each paging store after page counter rebuild completes
-      currentStoreMap.forEach((address, pgStore) -> {
-         managerExecutor.execute(() -> {
-            try {
-               pgStore.rebuildQuotaCounters();
-            } catch (Exception e) {
-               logger.warn("Error rebuilding quota counters for address {}", address, e);
-            }
-         });
       });
 
       managerExecutor.execute(() -> cleanupPageTransactions(transactionsSet, currentStoreMap));

@@ -265,21 +265,6 @@ public class PersistMultiThreadTest extends ActiveMQTestBase {
       }
 
       @Override
-      public void rebuildQuotaCounters() throws Exception {
-
-      }
-
-      @Override
-      public void setRebuiltQuotaBytes(long bytes) {
-
-      }
-
-      @Override
-      public long applyPreliminaryQuotaEstimate() {
-         return 0;
-      }
-
-      @Override
       public PageFullMessagePolicy getPageFullMessagePolicy() {
          return null;
       }

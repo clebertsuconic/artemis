@@ -309,28 +309,18 @@ public class ResourceQuotaManager {
     * @param name the quota name to remove
     */
    public void removeQuota(String name) {
-      ResourceQuota quota = quotaRepository.getMatch(name);
-      if (quota == null) {
+      ResourceQuota quotaBeingRemoved = quotaRepository.getMatch(name);
+      if (quotaBeingRemoved == null) {
          logger.warn("Attempted to remove non-existent quota: {}", name);
          return;
       }
 
-      // If this is a wildcard template, remove all runtime instances created from it
-      // and decrement their parent contributions before discarding them.
-      if (name.contains("*")) {
-         int wildcardIndex = name.indexOf('*');
-         String prefix = name.substring(0, wildcardIndex);
-         instantiatedQuotas.entrySet().removeIf(entry -> {
-            if (entry.getKey().startsWith(prefix)) {
-               decrementParentCounters(entry.getValue());
-               return true;
-            }
-            return false;
-         });
+      for (ResourceQuota quota : quotaRepository.values()) {
+         if (quota.getParent() == quotaBeingRemoved) {
+            // Detaching the child removes its aggregated totals from the parent via SizeAwareMetric.removeCallback
+            quota.setParent(null);
+         }
       }
-
-      // Decrement parent counters for the quota itself (non-wildcard, or the template)
-      decrementParentCounters(quota);
 
       // Remove from repository
       quotaRepository.removeMatch(name);
@@ -338,28 +328,6 @@ public class ResourceQuotaManager {
       logger.debug("Removed quota: {}", name);
    }
 
-   private void decrementParentCounters(ResourceQuota quota) {
-      ResourceQuota parent = quota.getParent();
-      if (parent == null) {
-         return;
-      }
-      int addressCount = quota.getCurrentAddressCount();
-      int queueCount = quota.getCurrentQueueCount();
-      long sizeBytes = quota.getCurrentMessageBytes();
-
-      for (int i = 0; i < addressCount; i++) {
-         parent.decrementAddressCount();
-      }
-      for (int i = 0; i < queueCount; i++) {
-         parent.decrementQueueCount();
-      }
-      if (sizeBytes > 0) {
-         parent.addSize(-sizeBytes);
-      }
-
-      logger.debug("Decremented parent quota '{}' by {} addresses, {} queues, {} bytes for child '{}'",
-                  parent.getName(), addressCount, queueCount, sizeBytes, quota.getName());
-   }
 
    @Override
    public String toString() {
