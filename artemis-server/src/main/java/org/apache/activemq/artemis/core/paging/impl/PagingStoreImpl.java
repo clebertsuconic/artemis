@@ -502,6 +502,13 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
 
                currentPageId = pageId;
 
+               long totalStorageSize = 0;
+               for (String fileName : files) {
+                  SequentialFile file = fileFactory.createSequentialFile(fileName);
+                  totalStorageSize += file.size();
+               }
+               useStorage(totalStorageSize);
+
                if (pageId != 0) {
                   reloadLivePage(pageId);
                }
@@ -1062,7 +1069,6 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
       return null;
    }
 
-
    protected int writePage(Message message,
                            Transaction tx,
                            RouteContextList listCtx,
@@ -1074,21 +1080,6 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
             return -1;
          }
 
-         final ResourceQuota quota = resourceQuota;
-         if (quota != null) {
-            final long size = message.getPersistentSize();
-            if (tx != null) {
-               tx.addOperation(new TransactionOperationAbstract() {
-                  @Override
-                  public void afterCommit(Transaction tx) {
-                     quota.addSize(size);
-                  }
-               });
-            } else {
-               quota.addSize(size);
-            }
-         }
-
          final long transactionID = (tx != null && tx.isAllowPageTransaction()) ? tx.getID() : -1L;
 
          if (pageDecorator != null) {
@@ -1098,6 +1089,9 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
          message.setPaged();
 
          pagedMessage = new PagedMessageImpl(message, routeQueues(tx, listCtx), transactionID);
+
+         useStorage(pagedMessage.getStoredSize() + PageReadWriter.SIZE_RECORD);
+
          if (tx != null) {
             pagedMessage.setStorageTX(tx.getStorageTx());
          }

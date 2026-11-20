@@ -34,6 +34,7 @@ import org.apache.activemq.artemis.core.server.LargeServerMessage;
 import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.settings.impl.DiskFullMessagePolicy;
+import org.apache.activemq.artemis.core.settings.impl.ResourceQuota;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.FutureLatch;
 import org.apache.activemq.artemis.utils.SizeAwareMetric;
@@ -84,11 +85,9 @@ public abstract class AddressSizeLimiter {
 
    protected volatile boolean running = false;
 
-   protected volatile org.apache.activemq.artemis.core.settings.impl.ResourceQuota resourceQuota;
-
-   protected volatile long preliminaryQuotaBytes;
-
-   protected volatile long rebuiltQuotaBytes = -1;
+   protected volatile SizeAwareMetric.AggregateCallback resourceQuotaCallback;
+   protected volatile ResourceQuota resourceQuota;
+   protected final SizeAwareMetric storageUsed = new SizeAwareMetric();
 
    protected boolean printedDropMessagesWarning;
 
@@ -100,23 +99,23 @@ public abstract class AddressSizeLimiter {
       return address;
    }
 
-   public void setResourceQuota(org.apache.activemq.artemis.core.settings.impl.ResourceQuota quota) {
+   public synchronized void setResourceQuota(ResourceQuota quota) {
+      if (resourceQuotaCallback != null) {
+         storageUsed.removeCallback(resourceQuotaCallback);
+      }
       this.resourceQuota = quota;
+      if (quota != null) {
+         this.resourceQuotaCallback = quota::aggregateSize;
+         storageUsed.addCallback(resourceQuotaCallback);
+      }
+   }
+
+   public void useStorage(final long size) {
+      storageUsed.addSize(size);
    }
 
    public org.apache.activemq.artemis.core.settings.impl.ResourceQuota getResourceQuota() {
       return resourceQuota;
-   }
-
-   public void setRebuiltQuotaBytes(long bytes) {
-      this.rebuiltQuotaBytes = bytes;
-   }
-
-   public long applyPreliminaryQuotaEstimate() {
-      return 0;
-   }
-
-   public void rebuildQuotaCounters() throws Exception {
    }
 
    // Internal components such as mirroring could enforce a different page full message policy

@@ -180,7 +180,6 @@ public class PageCounterRebuildManager implements Runnable {
             copiedSubscription.subscriptionCounter.finishRebuild();
          }
       });
-      pgStore.setRebuiltQuotaBytes(quotaBytes);
       pgStore.getCursorProvider().counterRebuildDone();
       pgStore.getCursorProvider().scheduleCleanup();
    }
