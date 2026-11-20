@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 
+import org.apache.activemq.artemis.utils.SizeAwareMetric;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,12 +68,17 @@ public class ResourceQuota {
    // Runtime state (counters, relationships)
    // volatile for parent since it can be updated during reload/hierarchy changes
    private volatile ResourceQuota parent;
-   // LongAdder stripes across cache lines — much faster than AtomicLong under
-   // contention from concurrent message sends propagating up a shared parent chain.
-   // sum() is eventually consistent, which is acceptable for best-effort quota enforcement.
-   private LongAdder sizeBytes;
-   private AtomicInteger addressCount;
-   private AtomicInteger queueCount;
+   private volatile boolean overSize = false;
+   private volatile boolean overAddress = false;
+   private volatile boolean overQueue = false;
+
+   private final SizeAwareMetric sizeMetric;
+   private final SizeAwareMetric addressCount;
+   private final SizeAwareMetric queueCount;
+
+   private volatile SizeAwareMetric.AggregateCallback parentSizeCallback;
+   private volatile SizeAwareMetric.AggregateCallback parentQueueCallback;
+   private volatile SizeAwareMetric.AggregateCallback parentAddressCallback;
 
    // ========================================================================
    // Constructor and Initialization
@@ -90,20 +96,11 @@ public class ResourceQuota {
       this.maxMessageBytes = null;
       this.maxAddresses = null;
       this.maxQueues = null;
-      initializeRuntimeState();
+      this.sizeMetric = new SizeAwareMetric().setOverCallback(() -> overSize = true).setUnderCallback(() -> overSize = false);
+      this.addressCount = new SizeAwareMetric().setOverCallback(() -> overAddress = true).setUnderCallback(() -> overAddress = false);
+      this.queueCount = new SizeAwareMetric().setOverCallback(() -> overQueue = true).setUnderCallback(() -> overQueue = false);
    }
 
-   /**
-    * Initialize transient runtime state (counters).
-    * Called on construction and lazily after deserialization via ensureInitialized().
-    * This allows ResourceQuota instances to be serialized as configuration and
-    * automatically initialize runtime state when used.
-    */
-   private void initializeRuntimeState() {
-      this.sizeBytes = new LongAdder();
-      this.addressCount = new AtomicInteger(0);
-      this.queueCount = new AtomicInteger(0);
-   }
 
    // ========================================================================
    // Configuration Getters and Setters
@@ -128,6 +125,7 @@ public class ResourceQuota {
 
    public ResourceQuota setMaxMessageBytes(Long maxMessageBytes) {
       this.maxMessageBytes = maxMessageBytes;
+      sizeMetric.setMax(maxMessageBytes, maxMessageBytes, -1, -1);
       return this;
    }
 
@@ -137,6 +135,8 @@ public class ResourceQuota {
 
    public ResourceQuota setMaxAddresses(Integer maxAddresses) {
       this.maxAddresses = maxAddresses;
+      int max = maxAddresses == null ? 0 : maxAddresses;
+      addressCount.setMax(0, 0, max, max);
       return this;
    }
 
@@ -146,6 +146,8 @@ public class ResourceQuota {
 
    public ResourceQuota setMaxQueues(Integer maxQueues) {
       this.maxQueues = maxQueues;
+      int max = maxQueues == null ? 0 : maxQueues;
+      queueCount.setMax(0, 0, max, max);
       return this;
    }
 
@@ -153,31 +155,53 @@ public class ResourceQuota {
       return parent;
    }
 
-   public void setParent(ResourceQuota parent) {
+   public synchronized void setParent(ResourceQuota parent) {
+      if (parent == this) {
+         throw new IllegalArgumentException("Cannot set resourceQuota to itself on " + this);
+      }
+      if (this.parentSizeCallback != null) {
+         sizeMetric.removeCallback(this.parentSizeCallback);
+         this.parentSizeCallback = null;
+      }
+      if (this.parentAddressCallback != null) {
+         addressCount.removeCallback(parentAddressCallback);
+         this.parentAddressCallback = null;
+      }
+      if (this.parentQueueCallback != null) {
+         queueCount.removeCallback(parentQueueCallback);
+         this.parentQueueCallback = null;
+      }
       this.parent = parent;
+      this.parentSizeCallback = parent::aggregateSize;
+      this.parentQueueCallback = parent::aggregateQueue;
+      this.parentAddressCallback = parent::aggregateAddress;
+      sizeMetric.addCallback(parentSizeCallback);
+      queueCount.addCallback(parentQueueCallback);
+      addressCount.addCallback(parentAddressCallback);
    }
 
    // ========================================================================
    // Byte Quota Operations
    // ========================================================================
 
-   /**
-    * Add size delta to this quota and propagate to parent.
-    *
-    * @param delta size change in bytes (can be negative for decrements)
-    */
    public void addSize(long delta) {
-      ensureInitialized();
-      sizeBytes.add(delta);
+      sizeMetric.addSize(delta);
+   }
 
-      // Propagate to parent
-      if (parent != null) {
-         parent.addSize(delta);
-      }
+   private void aggregateSize(long deltaElements, long deltaSize) {
+      sizeMetric.aggregate(deltaElements, deltaSize);
 
       if (logger.isDebugEnabled()) {
-         logger.debug("Quota {} size changed by {} to {}", name, delta, sizeBytes.sum());
+         logger.debug("Quota {} size changed by {}/{} to {}/{}", name, deltaElements, deltaSize, sizeMetric.getElements(), sizeMetric.getSize());
       }
+   }
+
+   private void aggregateQueue(long deltaElements, long deltaSize) {
+      queueCount.aggregate(deltaElements, deltaSize);
+   }
+
+   private void aggregateAddress(long deltaElements, long deltaSize) {
+      addressCount.aggregate(deltaElements, deltaSize);
    }
 
    /**
@@ -192,8 +216,7 @@ public class ResourceQuota {
     * Get current message bytes tracked by this quota.
     */
    public long getCurrentMessageBytes() {
-      ensureInitialized();
-      return sizeBytes.sum();
+      return sizeMetric.getSize();
    }
 
    // ========================================================================
@@ -208,23 +231,12 @@ public class ResourceQuota {
     * @return true if adding the bytes would stay within limits, false if adding would exceed
     */
    public boolean canAddBytes(long bytesToAdd) {
-      ensureInitialized();
-
-      if (parent != null && !parent.canAddBytes(bytesToAdd)) {
+      if (overSize) {
          return false;
       }
 
-      Long limit = maxMessageBytes;
-      if (limit != null && limit >= 0) {
-         long currentSize = sizeBytes.sum();
-         if ((currentSize + bytesToAdd) > limit) {
-            logger.debug("Quota {} byte limit {} would be exceeded: current {} + {} bytes",
-                         name, limit, currentSize, bytesToAdd);
-            return false;
-         }
-      }
-
-      return true;
+      // TODO: do we really need to be strict here? wouldn't trusting oversized value be enough here?
+      return sizeMetric.fitsBytes(bytesToAdd);
    }
 
    /**
@@ -234,9 +246,7 @@ public class ResourceQuota {
     * @return true if current message bytes exceed maxMessageBytes
     */
    public boolean isByteLimitReached() {
-      ensureInitialized();
-      Long limit = maxMessageBytes;
-      return limit != null && limit >= 0 && sizeBytes.sum() > limit;
+      return overSize;
    }
 
    /**
@@ -245,8 +255,7 @@ public class ResourceQuota {
     * @return true if current address count is at or above maxAddresses
     */
    public boolean isAddressLimitReached() {
-      Integer limit = maxAddresses;
-      return limit != null && limit >= 0 && addressCount.get() >= limit;
+      return overAddress;
    }
 
    /**
@@ -255,8 +264,7 @@ public class ResourceQuota {
     * @return true if current queue count is at or above maxQueues
     */
    public boolean isQueueLimitReached() {
-      Integer limit = maxQueues;
-      return limit != null && limit >= 0 && queueCount.get() >= limit;
+      return overQueue;
    }
 
    /**
@@ -283,8 +291,7 @@ public class ResourceQuota {
       if (limit == null || limit <= 0) {
          return -1;
       }
-      ensureInitialized();
-      return (sizeBytes.sum() * 100.0) / limit;
+      return (sizeMetric.getSize() * 100.0) / limit;
    }
 
    /**
@@ -297,8 +304,7 @@ public class ResourceQuota {
       if (limit == null || limit <= 0) {
          return -1;
       }
-      ensureInitialized();
-      return (addressCount.get() * 100.0) / limit;
+      return (addressCount.getElements() * 100.0) / limit;
    }
 
    /**
@@ -311,8 +317,7 @@ public class ResourceQuota {
       if (limit == null || limit <= 0) {
          return -1;
       }
-      ensureInitialized();
-      return (queueCount.get() * 100.0) / limit;
+      return (queueCount.getElements() * 100.0) / limit;
    }
 
    // ========================================================================
@@ -326,22 +331,7 @@ public class ResourceQuota {
     * @return true if an address can be added, false if adding would exceed limit
     */
    public boolean canAddAddress() {
-      ensureInitialized();
-
-      if (parent != null && !parent.canAddAddress()) {
-         return false;
-      }
-
-      Integer limit = maxAddresses;
-      if (limit != null && limit >= 0) {
-         int current = addressCount.get();
-         if (current >= limit) {
-            logger.debug("Quota {} address limit {} would be exceeded at count {}", name, limit, current);
-            return false;
-         }
-      }
-
-      return true;
+      return !overAddress;
    }
 
    /**
@@ -349,8 +339,7 @@ public class ResourceQuota {
     * Should only be called after successful canAddAddress() check.
     */
    public void incrementAddressCount() {
-      ensureInitialized();
-      addressCount.incrementAndGet();
+      addressCount.addMessage()
       if (parent != null) {
          parent.incrementAddressCount();
       }
@@ -361,7 +350,6 @@ public class ResourceQuota {
     * Decrement address count and propagate to parent
     */
    public void decrementAddressCount() {
-      ensureInitialized();
       int current = addressCount.decrementAndGet();
 
       // Always propagate to parent to maintain sync
@@ -389,8 +377,6 @@ public class ResourceQuota {
     * @return true if a queue can be added, false if adding would exceed limit
     */
    public boolean canAddQueue() {
-      ensureInitialized();
-
       if (parent != null && !parent.canAddQueue()) {
          return false;
       }
@@ -412,7 +398,6 @@ public class ResourceQuota {
     * Should only be called after successful canAddQueue() check.
     */
    public void incrementQueueCount() {
-      ensureInitialized();
       queueCount.incrementAndGet();
       if (parent != null) {
          parent.incrementQueueCount();
@@ -424,7 +409,6 @@ public class ResourceQuota {
     * Decrement queue count and propagate to parent
     */
    public void decrementQueueCount() {
-      ensureInitialized();
       int current = queueCount.decrementAndGet();
 
       // Always propagate to parent to maintain sync
@@ -445,7 +429,6 @@ public class ResourceQuota {
     * Get current address count tracked by this quota.
     */
    public int getCurrentAddressCount() {
-      ensureInitialized();
       return addressCount.get();
    }
 
@@ -460,7 +443,6 @@ public class ResourceQuota {
     * Get current queue count tracked by this quota.
     */
    public int getCurrentQueueCount() {
-      ensureInitialized();
       return queueCount.get();
    }
 
@@ -474,31 +456,6 @@ public class ResourceQuota {
    // ========================================================================
    // Lifecycle and Internal Methods
    // ========================================================================
-
-   /**
-    * Adjust counters directly without propagating to parent quotas.
-    * Used during reload to adjust parent chain counters when a child quota's
-    * hierarchy changes, avoiding the need to reset and rebuild from scratch.
-    *
-    * @param addressDelta change in address count (can be negative)
-    * @param queueDelta change in queue count (can be negative)
-    * @param bytesDelta change in byte count (can be negative)
-    */
-   public void adjustCountersDirect(int addressDelta, int queueDelta, long bytesDelta) {
-      ensureInitialized();
-      addressCount.addAndGet(addressDelta);
-      queueCount.addAndGet(queueDelta);
-      sizeBytes.add(bytesDelta);
-   }
-
-   /**
-    * Ensure runtime state is initialized (handles deserialization).
-    */
-   private void ensureInitialized() {
-      if (sizeBytes == null) {
-         initializeRuntimeState();
-      }
-   }
 
    // ========================================================================
    // Copy Method (for wildcard template instantiation)
@@ -552,9 +509,8 @@ public class ResourceQuota {
              ", maxMessageBytes=" + maxMessageBytes +
              ", maxAddresses=" + maxAddresses +
              ", maxQueues=" + maxQueues +
-             ", currentSize=" + (sizeBytes != null ? sizeBytes.sum() : 0) +
-             ", currentAddresses=" + (addressCount != null ? addressCount.get() : 0) +
-             ", currentQueues=" + (queueCount != null ? queueCount.get() : 0) +
-             '}';
+             ", currentSize=" + sizeMetric.getSize() +
+             ", currentAddresses=" + addressCount.get() +
+             ", currentQueues=" + queueCount.get() + '}';
    }
 }
