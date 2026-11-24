@@ -60,7 +60,6 @@ public class ResourceQuota {
    // Configuration (limits) - set from ResourceQuotaConfig
    // volatile ensures changes during reload are visible to all threads
    private final String name;
-   private volatile String parentName;
    private volatile Long maxMessageBytes;
    private volatile Integer maxAddresses;
    private volatile Integer maxQueues;
@@ -76,10 +75,6 @@ public class ResourceQuota {
    private final SizeAwareMetric addressCount;
    private final SizeAwareMetric queueCount;
 
-   private volatile SizeAwareMetric.AggregateCallback parentSizeCallback;
-   private volatile SizeAwareMetric.AggregateCallback parentQueueCallback;
-   private volatile SizeAwareMetric.AggregateCallback parentAddressCallback;
-
    // ========================================================================
    // Constructor and Initialization
    // ========================================================================
@@ -92,7 +87,6 @@ public class ResourceQuota {
     */
    public ResourceQuota(String name) {
       this.name = name;
-      this.parentName = null;
       this.maxMessageBytes = null;
       this.maxAddresses = null;
       this.maxQueues = null;
@@ -108,15 +102,6 @@ public class ResourceQuota {
 
    public String getName() {
       return name;
-   }
-
-   public String getParentName() {
-      return parentName;
-   }
-
-   public ResourceQuota setParentName(String parentName) {
-      this.parentName = parentName;
-      return this;
    }
 
    public long getMaxMessageBytes() {
@@ -151,45 +136,9 @@ public class ResourceQuota {
       return this;
    }
 
-   public ResourceQuota getParent() {
-      return parent;
-   }
-
-   public synchronized void setParent(ResourceQuota parent) {
-      if (parent == this) {
-         throw new IllegalArgumentException("Cannot set resourceQuota to itself on " + this);
-      }
-      if (this.parentSizeCallback != null) {
-         sizeMetric.removeCallback(this.parentSizeCallback);
-         this.parentSizeCallback = null;
-      }
-      if (this.parentAddressCallback != null) {
-         addressCount.removeCallback(parentAddressCallback);
-         this.parentAddressCallback = null;
-      }
-      if (this.parentQueueCallback != null) {
-         queueCount.removeCallback(parentQueueCallback);
-         this.parentQueueCallback = null;
-      }
-      this.parent = parent;
-
-      if (parent != null) {
-         this.parentSizeCallback = parent::aggregateSize;
-         this.parentQueueCallback = parent::aggregateQueue;
-         this.parentAddressCallback = parent::aggregateAddress;
-         sizeMetric.addCallback(parentSizeCallback);
-         queueCount.addCallback(parentQueueCallback);
-         addressCount.addCallback(parentAddressCallback);
-      }
-   }
-
    // ========================================================================
    // Byte Quota Operations
    // ========================================================================
-
-   public void addSize(long delta) {
-      sizeMetric.addSize(delta);
-   }
 
    // This is for recursion adding
    public void aggregateSize(long deltaElements, long deltaSize) {
@@ -201,12 +150,12 @@ public class ResourceQuota {
    }
 
    // This is for recursion adding
-   private void aggregateQueue(long deltaElements, long deltaSize) {
+   void aggregateQueue(long deltaElements, long deltaSize) {
       queueCount.aggregate(deltaElements, deltaSize);
    }
 
    // This is for recursion adding
-   private void aggregateAddress(long deltaElements, long deltaSize) {
+   void aggregateAddress(long deltaElements, long deltaSize) {
       addressCount.aggregate(deltaElements, deltaSize);
    }
 
@@ -496,8 +445,6 @@ public class ResourceQuota {
       copy.maxMessageBytes = this.maxMessageBytes;
       copy.maxAddresses = this.maxAddresses;
       copy.maxQueues = this.maxQueues;
-      copy.parentName = this.parentName;
-      // Counters start at zero - will be rebuilt
       return copy;
    }
 
@@ -514,7 +461,6 @@ public class ResourceQuota {
          return false;
       }
       return Objects.equals(name, that.name) &&
-             Objects.equals(parentName, that.parentName) &&
              Objects.equals(maxMessageBytes, that.maxMessageBytes) &&
              Objects.equals(maxAddresses, that.maxAddresses) &&
              Objects.equals(maxQueues, that.maxQueues);
@@ -522,14 +468,13 @@ public class ResourceQuota {
 
    @Override
    public int hashCode() {
-      return Objects.hash(name, parentName, maxMessageBytes, maxAddresses, maxQueues);
+      return Objects.hash(name, maxMessageBytes, maxAddresses, maxQueues);
    }
 
    @Override
    public String toString() {
       return "ResourceQuota{" +
              "name='" + name + '\'' +
-             ", parentName='" + parentName + '\'' +
              ", maxMessageBytes=" + maxMessageBytes +
              ", maxAddresses=" + maxAddresses +
              ", maxQueues=" + maxQueues +

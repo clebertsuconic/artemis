@@ -120,14 +120,9 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
       return null;
    }
 
-   /**
-    * Set the resource quota for this paging store.
-    *
-    * @param quota the resource quota to enforce, or null for no quota
-    */
-   void setResourceQuota(ResourceQuota quota);
+   void addResourceQuota(ResourceQuota quota);
 
-   ResourceQuota getResourceQuota();
+   void removeResourceQuota(ResourceQuota quota);
 
    /**
     * This method will look if the current state of paging is not paging, without using a lock. For cases where you need
@@ -225,7 +220,7 @@ public interface PagingStore extends ActiveMQComponent, RefCountMessageListener 
    default void purgeFolder() {
    }
 
-   default void useStorage(long size) {
+   default void addStorageSize(long size) {
    }
 
    long addMessage(int bytes, boolean affectGlobal);

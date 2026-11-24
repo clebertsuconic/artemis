@@ -17,6 +17,7 @@
 package org.apache.activemq.artemis.tests.unit.core.settings.impl;
 
 import org.apache.activemq.artemis.core.settings.impl.ResourceQuota;
+import org.apache.activemq.artemis.utils.SizeAwareMetric;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
@@ -57,16 +58,17 @@ public class ResourceQuotaTest {
    public void testByteTracking() {
       ResourceQuota quota = new ResourceQuota("test-quota");
       quota.setMaxMessageBytes(1000L);
+      SizeAwareMetric sizeAwareMetric = new SizeAwareMetric().addCallback(quota::aggregateSize);
 
       assertEquals(0, quota.getSize());
 
-      quota.addSize(100);
+      sizeAwareMetric.addSize(100);
       assertEquals(100, quota.getSize());
 
-      quota.addSize(200);
+      sizeAwareMetric.addSize(200);
       assertEquals(300, quota.getSize());
 
-      quota.addSize(-50);
+      sizeAwareMetric.addSize(-50);
       assertEquals(250, quota.getSize());
    }
 
@@ -74,17 +76,18 @@ public class ResourceQuotaTest {
    public void testByteLimitExceeded() {
       ResourceQuota quota = new ResourceQuota("test-quota");
       quota.setMaxMessageBytes(1000L);
+      SizeAwareMetric sizeAwareMetric = new SizeAwareMetric().addCallback(quota::aggregateSize);
 
       assertFalse(quota.isByteLimitReached());
 
-      quota.addSize(500);
+      sizeAwareMetric.addSize(500);
       assertFalse(quota.isByteLimitReached());
 
-      quota.addSize(600);
+      sizeAwareMetric.addSize(600);
       assertTrue(quota.isByteLimitReached());
 
       // Going back under the lower mark (90% of max = 900)
-      quota.addSize(-300);
+      sizeAwareMetric.addSize(-300);
       assertFalse(quota.isByteLimitReached());
    }
 
@@ -142,9 +145,12 @@ public class ResourceQuotaTest {
       child.setMaxAddresses(50);
       child.setMaxQueues(50);
       child.setParent(parent);
+      SizeAwareMetric sizeAwareMetric = new SizeAwareMetric();
 
       // Test byte propagation
-      child.addSize(1000);
+      sizeAwareMetric.addSize(1000);
+      sizeAwareMetric.addCallback(child::aggregateSize);
+
       assertEquals(1000, child.getSize());
       assertEquals(1000, parent.getSize());
 
@@ -170,6 +176,7 @@ public class ResourceQuotaTest {
 
    @Test
    public void testThreeLevelHierarchy() {
+      SizeAwareMetric countryPageStoreMetric = new SizeAwareMetric();
       ResourceQuota global = new ResourceQuota("global");
       global.setMaxMessageBytes(100000L);
 
@@ -182,14 +189,15 @@ public class ResourceQuotaTest {
       country.setParent(region);
 
       // Add bytes to country-level quota
-      country.addSize(5000);
+      countryPageStoreMetric.addSize(5000);
+      countryPageStoreMetric.addCallback(country::aggregateSize);
 
       assertEquals(5000, country.getSize());
       assertEquals(5000, region.getSize());
       assertEquals(5000, global.getSize());
 
       // Add more to exceed country limit but not region
-      country.addSize(6000);
+      countryPageStoreMetric.addSize(6000);
       assertEquals(11000, country.getSize());
       assertTrue(country.isByteLimitReached());
       assertFalse(region.isByteLimitReached());
@@ -202,6 +210,7 @@ public class ResourceQuotaTest {
       quota.setMaxMessageBytes(1000000L);
       quota.setMaxAddresses(1000);
       quota.setMaxQueues(1000);
+      SizeAwareMetric metric = new SizeAwareMetric().addCallback(quota::aggregateSize);
 
       int threadCount = 10;
       int operationsPerThread = 100;
@@ -213,7 +222,7 @@ public class ResourceQuotaTest {
             try {
                startLatch.await();
                for (int j = 0; j < operationsPerThread; j++) {
-                  quota.addSize(10);
+                  metric.addSize(10);
                   quota.incrementAddressCount();
                   quota.incrementQueueCount();
                }
@@ -249,11 +258,12 @@ public class ResourceQuotaTest {
    @Test
    public void testSizeOnlyTracking() {
       ResourceQuota quota = new ResourceQuota("test");
+      SizeAwareMetric metric = new SizeAwareMetric().addCallback(quota::aggregateSize);
 
-      quota.addSize(100);
+      metric.addSize(100);
       assertEquals(100, quota.getSize());
 
-      quota.addSize(50);
+      metric.addSize(50);
       assertEquals(150, quota.getSize());
    }
 

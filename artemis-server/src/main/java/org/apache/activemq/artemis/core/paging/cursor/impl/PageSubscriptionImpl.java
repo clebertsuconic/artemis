@@ -431,21 +431,6 @@ public final class PageSubscriptionImpl implements PageSubscription {
          txInfo.storeUpdate(store, pageStore.getPagingManager(), tx);
          tx.setContainsPersistent();
       }
-
-      final ResourceQuota quota = pageStore.getResourceQuota();
-      if (quota != null) {
-         if (tx != null) {
-            tx.addOperation(new TransactionOperationAbstract() {
-               @Override
-               public void afterCommit(final Transaction tx1) {
-                  quota.addSize(-persistentSize);
-               }
-            });
-         } else {
-            quota.addSize(-persistentSize);
-         }
-      }
-
    }
 
    @Override

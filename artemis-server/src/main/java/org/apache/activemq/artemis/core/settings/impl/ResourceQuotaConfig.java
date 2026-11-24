@@ -141,24 +141,7 @@ public class ResourceQuotaConfig implements Serializable {
       runtime.setMaxMessageBytes(this.maxMessageBytes);
       runtime.setMaxAddresses(this.maxAddresses);
       runtime.setMaxQueues(this.maxQueues);
-      runtime.setParentName(this.parentName);
       return runtime;
-   }
-
-   /**
-    * Create a copy of this config for wildcard template instantiation.
-    * For example, template "EU.*" with address "eu.fr.orders" creates config "EU.fr".
-    *
-    * @param newName the name for the new config instance
-    * @return copy with new name but same limits and parentName
-    */
-   public ResourceQuotaConfig copy(String newName) {
-      ResourceQuotaConfig copy = new ResourceQuotaConfig(newName);
-      copy.maxMessageBytes = this.maxMessageBytes;
-      copy.maxAddresses = this.maxAddresses;
-      copy.maxQueues = this.maxQueues;
-      copy.parentName = this.parentName;
-      return copy;
    }
 
    @Override

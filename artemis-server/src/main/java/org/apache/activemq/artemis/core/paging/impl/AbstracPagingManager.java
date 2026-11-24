@@ -147,14 +147,6 @@ public abstract class AbstracPagingManager implements PagingManager {
       for (PagingStore store : stores.values()) {
          AddressSettings settings = this.addressSettingsRepository.getMatch(store.getAddress().toString());
          store.applySetting(settings);
-
-         if (resourceQuotaManager != null && settings.getResourceQuota() != null) {
-            org.apache.activemq.artemis.core.settings.impl.ResourceQuota quota =
-               resourceQuotaManager.getQuotaForAddress(store.getAddress(), settings);
-            store.setResourceQuota(quota);
-         } else {
-            store.setResourceQuota(null);
-         }
       }
    }
 

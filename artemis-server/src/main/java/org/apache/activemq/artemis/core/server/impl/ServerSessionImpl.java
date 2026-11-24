@@ -2502,10 +2502,6 @@ public class ServerSessionImpl extends CriticalComponentImpl implements ServerSe
       // check the user has write access to this address (and potentially queue).
       try {
          securityCheck(CompositeAddress.extractAddressName(messageAddress), CompositeAddress.isFullyQualified(messageAddress) ? CompositeAddress.extractQueueName(messageAddress) : null, CheckType.SEND, this);
-
-         final org.apache.activemq.artemis.core.paging.PagingStore pagingStore =
-            server.getPagingManager() != null ? server.getPagingManager().getPageStore(messageAddress) : null;
-         final ResourceQuota quota = pagingStore != null ? pagingStore.getResourceQuota() : null;
          if (quota != null) {
             final long sizeForConsistency = MessageReferenceImpl.getMemoryEstimate() + message.getMemoryEstimate() + (message.isLargeMessage() ? message.getPersistentSize() : 0);
             if (!quota.canAddBytes(sizeForConsistency)) {

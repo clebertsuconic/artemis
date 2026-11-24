@@ -22,6 +22,7 @@ import org.apache.activemq.artemis.core.server.quota.ResourceQuotaManager;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.settings.impl.HierarchicalObjectRepository;
 import org.apache.activemq.artemis.core.settings.impl.ResourceQuota;
+import org.apache.activemq.artemis.utils.SizeAwareMetric;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -175,6 +176,7 @@ public class ResourceQuotaManagerTest {
       ResourceQuota country = new ResourceQuota("EU.fr");
       country.setMaxMessageBytes(10000L);
       country.setParentName("EU");
+      SizeAwareMetric metric = new SizeAwareMetric().addCallback(country::aggregateSize);
 
       manager.addQuota("global", global);
       manager.addQuota("EU", region);
@@ -183,7 +185,7 @@ public class ResourceQuotaManagerTest {
       manager.establishParentRelationships();
 
       // Add bytes at country level
-      country.addSize(5000);
+      metric.addSize(5000);
 
       assertEquals(5000, country.getSize());
       assertEquals(5000, region.getSize());
@@ -245,10 +247,12 @@ public class ResourceQuotaManagerTest {
       ResourceQuota usCa = new ResourceQuota("US.ca");
       usCa.setMaxMessageBytes(100000L);
       usCa.setParentName("US");
+      SizeAwareMetric usCaMetric = new SizeAwareMetric().addCallback(usCa::aggregateSize);
 
       ResourceQuota euFr = new ResourceQuota("EU.fr");
       euFr.setMaxMessageBytes(100000L);
       euFr.setParentName("EU");
+      SizeAwareMetric euFrMetric = new SizeAwareMetric().addCallback(euFr::aggregateSize);
 
       manager.addQuota("global", global);
       manager.addQuota("US", us);
@@ -259,7 +263,7 @@ public class ResourceQuotaManagerTest {
       manager.establishParentRelationships();
 
       // US.ca should propagate to US and global
-      usCa.addSize(50000);
+      usCaMetric.addSize(50000);
       assertEquals(50000, usCa.getSize());
       assertEquals(50000, us.getSize());
       assertEquals(50000, global.getSize());
@@ -267,7 +271,7 @@ public class ResourceQuotaManagerTest {
       assertEquals(0, euFr.getSize());
 
       // EU.fr should propagate to EU and global
-      euFr.addSize(30000);
+      euFrMetric.addSize(30000);
       assertEquals(30000, euFr.getSize());
       assertEquals(30000, eu.getSize());
       assertEquals(80000, global.getSize());
@@ -284,6 +288,7 @@ public class ResourceQuotaManagerTest {
       ResourceQuota child = new ResourceQuota("child");
       child.setMaxMessageBytes(500000L);
       child.setParentName("parent");
+      SizeAwareMetric childMetric = new SizeAwareMetric().addCallback(child::aggregateSize);
 
       // Add quotas to manager
       manager.addQuota("parent", parent);
@@ -293,7 +298,7 @@ public class ResourceQuotaManagerTest {
       manager.establishParentRelationships();
 
       // Add bytes to child (should propagate to parent)
-      child.addSize(100000);
+      childMetric.addSize(100000);
       assertEquals(100000, child.getSize());
       assertEquals(100000, parent.getSize());
 
@@ -325,12 +330,12 @@ public class ResourceQuotaManagerTest {
       ResourceQuota global = new ResourceQuota("global");
       global.setMaxAddresses(100);
 
-      ResourceQuota template = new ResourceQuota("region.*");
-      template.setMaxAddresses(50);
-      template.setParentName("global");
+      ResourceQuota regionStar = new ResourceQuota("region.*");
+      regionStar.setMaxAddresses(50);
+      regionStar.setParentName("global");
 
       manager.addQuota("global", global);
-      manager.addQuota("region.*", template);
+      manager.addQuota("region.*", regionStar);
 
       manager.establishParentRelationships();
 
@@ -363,6 +368,7 @@ public class ResourceQuotaManagerTest {
 
       // Remove the wildcard template — must decrement children's contributions from global
       manager.removeQuota("region.*");
+      //template.setParent(null);
 
       assertEquals(0, global.getCurrentAddressCount(),
          "Global address count must be zero after removing wildcard template with instantiated children");

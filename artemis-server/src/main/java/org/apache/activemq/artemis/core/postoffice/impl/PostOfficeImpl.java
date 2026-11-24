@@ -1713,9 +1713,7 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
       } else {
          deliveryTime = null;
       }
-      final SimpleString messageAddress = message.getAddressSimpleString();
-      final PagingStore owningStore = pagingManager.getPageStore(messageAddress);
-      message.setOwner(owningStore);
+      PagingStore owningStore = validatingOwningStore(message);
       for (Map.Entry<SimpleString, RouteContextList> entry : context.getContexListing().entrySet()) {
          final PagingStore store;
          if (entry.getKey().equals(messageAddress)) {
@@ -1807,6 +1805,18 @@ public class PostOfficeImpl implements PostOffice, NotificationListener, Binding
       if (startedTX) {
          tx.commit();
       }
+   }
+
+   private PagingStore validatingOwningStore(Message message) throws Exception {
+      if (message.getOwner() == null) {
+         final SimpleString messageAddress = message.getAddressSimpleString();
+         final PagingStore owningStore = pagingManager.getPageStore(messageAddress);
+         message.setOwner(owningStore);
+         if (owningStore != null) {
+            owningStore.checkQuota();
+         }
+      }
+      return message.getOwner();
    }
 
    public static void processReferences(List<MessageReference> refs, boolean direct) {

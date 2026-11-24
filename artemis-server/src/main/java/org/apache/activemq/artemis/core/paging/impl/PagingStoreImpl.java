@@ -58,10 +58,8 @@ import org.apache.activemq.artemis.core.server.impl.QueueImpl;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.settings.impl.DiskFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.PageFullMessagePolicy;
-import org.apache.activemq.artemis.core.settings.impl.ResourceQuota;
 import org.apache.activemq.artemis.core.transaction.Transaction;
 import org.apache.activemq.artemis.core.transaction.TransactionOperation;
-import org.apache.activemq.artemis.core.transaction.TransactionOperationAbstract;
 import org.apache.activemq.artemis.core.transaction.TransactionPropertyIndexes;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.SimpleFutureImpl;
@@ -507,7 +505,7 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
                   SequentialFile file = fileFactory.createSequentialFile(fileName);
                   totalStorageSize += file.size();
                }
-               useStorage(totalStorageSize);
+               addStorageSize(totalStorageSize);
 
                if (pageId != 0) {
                   reloadLivePage(pageId);
@@ -1090,7 +1088,7 @@ public class PagingStoreImpl extends AddressSizeLimiter implements PagingStore {
 
          pagedMessage = new PagedMessageImpl(message, routeQueues(tx, listCtx), transactionID);
 
-         useStorage(pagedMessage.getStoredSize() + PageReadWriter.SIZE_RECORD);
+         addStorageSize(pagedMessage.getStoredSize() + PageReadWriter.SIZE_RECORD);
 
          if (tx != null) {
             pagedMessage.setStorageTX(tx.getStorageTx());

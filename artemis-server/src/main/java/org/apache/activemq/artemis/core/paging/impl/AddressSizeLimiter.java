@@ -35,6 +35,7 @@ import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.AddressSettings;
 import org.apache.activemq.artemis.core.settings.impl.DiskFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.ResourceQuota;
+import org.apache.activemq.artemis.core.settings.impl.ResourceRoot;
 import org.apache.activemq.artemis.utils.ArtemisCloseable;
 import org.apache.activemq.artemis.utils.FutureLatch;
 import org.apache.activemq.artemis.utils.SizeAwareMetric;
@@ -85,9 +86,7 @@ public abstract class AddressSizeLimiter {
 
    protected volatile boolean running = false;
 
-   protected volatile SizeAwareMetric.AggregateCallback resourceQuotaCallback;
-   protected volatile ResourceQuota resourceQuota;
-   protected final SizeAwareMetric storageUsed = new SizeAwareMetric();
+   ResourceRoot resourceRoot = new ResourceRoot();
 
    protected boolean printedDropMessagesWarning;
 
@@ -99,23 +98,17 @@ public abstract class AddressSizeLimiter {
       return address;
    }
 
-   public synchronized void setResourceQuota(ResourceQuota quota) {
-      if (resourceQuotaCallback != null) {
-         storageUsed.removeCallback(resourceQuotaCallback);
-      }
-      this.resourceQuota = quota;
-      if (quota != null) {
-         this.resourceQuotaCallback = quota::aggregateSize;
-         storageUsed.addCallback(resourceQuotaCallback);
-      }
+   public void addResourceQuota(ResourceQuota resourceQuota) {
+      resourceRoot.addParent(resourceQuota);
    }
 
-   public void useStorage(final long size) {
-      storageUsed.addSize(size);
+   public void addStorageSize(final long size) {
+      long sizeResult = resourceRoot.addSize(size);
+      logger.info("totalSize = {} after adding {}", sizeResult, size);
    }
 
-   public org.apache.activemq.artemis.core.settings.impl.ResourceQuota getResourceQuota() {
-      return resourceQuota;
+   public void removeResourceQuota(ResourceQuota resourceQuota) {
+      resourceRoot.removeParent(resourceQuota);
    }
 
    // Internal components such as mirroring could enforce a different page full message policy
